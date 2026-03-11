@@ -9,6 +9,9 @@ Built for investors who:
 - Track their own ACB in a spreadsheet
 - Receive CDS Innovations T3 statements and want to automate the math
 
+
+** Download latest release (zip): https://github.com/Vdimitrov73/t3_compute/releases/latest
+
 ---
 
 ## Prerequisites
