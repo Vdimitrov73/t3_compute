@@ -1,0 +1,43 @@
+# ── Personal config and data — NEVER commit these ────────────────────────────
+config.json
+account_periods.json
+funds.json
+
+# ACB spreadsheets (personal financial data)
+*.xlsx
+*.xls
+!acb_worksheet_template.xlsx
+
+# Pipeline output folders and files
+*/distributions/
+*/assets/
+T3_results_*.txt
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# ── OS / editor clutter ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace

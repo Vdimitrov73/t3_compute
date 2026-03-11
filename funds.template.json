@@ -1,0 +1,6 @@
+{
+  "VBAL": {"calc_method_override": null},
+  "CPD":  {"calc_method_override": null},
+  "VRE":  {"calc_method_override": null},
+  "ZCN":  {"calc_method_override": "PERCENT"}
+}

@@ -1,0 +1,16 @@
+{
+  "tax_year": "2025",
+  "base_dir": "C:\\Users\\YourName\\Documents\\Tax Documents",
+  "acb_spreadsheet": "C:\\Users\\YourName\\Documents\\t3_compute\\acb_worksheet.xlsx",
+  "funds": ["VBAL", "CPD", "VRE", "ZCN"],
+  "tax_rates": {
+    "eligible_div_grossup": 1.38,
+    "eligible_div_tax_credit": 0.150198,
+    "non_eligible_div_grossup": 1.15,
+    "non_eligible_div_tax_credit": 0.090301
+  },
+  "col_indices": {
+    "date": 0,
+    "share_balance": 6
+  }
+}

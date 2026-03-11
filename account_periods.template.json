@@ -1,0 +1,17 @@
+{
+  "2025": {
+    "VBAL": [
+      {"start": "2025-01-01", "account": "My Broker"}
+    ],
+    "CPD": [
+      {"start": "2025-01-01", "account": "My Broker"},
+      {"start": "2025-07-01", "account": "New Broker"}
+    ],
+    "VRE": [
+      {"start": "2025-01-01", "account": "My Broker"}
+    ],
+    "ZCN": [
+      {"start": "2025-01-01", "account": "My Broker"}
+    ]
+  }
+}
