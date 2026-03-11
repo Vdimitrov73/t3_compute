@@ -23,6 +23,7 @@ import pdfplumber
 import json
 import os
 import re
+import sys
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -405,10 +406,16 @@ def main():
     print(f"Dist dir : {dist_dir}")
     print()
 
+    skipped = []
+
     for fund in funds:
         pdf_path = os.path.join(pdf_dir, f"{fund}_T3_{tax_year}.pdf")
         if not os.path.exists(pdf_path):
-            print(f"WARNING: Not found, skipping: {pdf_path}")
+            print(f"  WARNING: CDS PDF not found — skipping {fund}")
+            print(f"           Expected: {pdf_path}")
+            print(f"           Download from: https://ctbsext.posttrade.cds.ca/ctbsExt/")
+            print(f"           Save as: {fund}_T3_{tax_year}.pdf in the folder above")
+            skipped.append(fund)
             continue
 
         # Apply calc_method_override from funds.json if present
@@ -418,7 +425,11 @@ def main():
         result = extract_distributions(pdf_path, fund, calc_method_override=override)
 
         if not result["distributions"]:
-            print(f"  WARNING: No distributions found — PDF structure may differ")
+            print(f"  WARNING: No distributions found for {fund} — PDF structure may differ")
+            print(f"           Check the file is the CDS T3 statement, not the broker version.")
+            print(f"           Try setting calc_method_override in funds.json to 'RATE' or 'PERCENT'.")
+            skipped.append(fund)
+            continue
         else:
             print(f"  Found {len(result['distributions'])} distribution(s)")
             for d in result["distributions"]:
@@ -465,6 +476,13 @@ def main():
         xlsx_path = os.path.join(dist_dir, f"{fund}_ACB_{tax_year}.xlsx")
         write_acb_excel(result, xlsx_path)
         print(f"  Excel → {xlsx_path}\n")
+
+
+
+    if skipped:
+        print(f"\n  WARNING: {len(skipped)} fund(s) skipped: {', '.join(skipped)}")
+        print(f"  Re-run Step 1 after downloading or fixing the missing files.")
+        sys.exit(2)   # non-zero so run_t3.py can detect warnings
 
 
 if __name__ == "__main__":

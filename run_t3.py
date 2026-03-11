@@ -169,6 +169,11 @@ def run_step(step_num, args):
             import compute_t3
             compute_t3.main()
     except SystemExit as e:
+        if e.code == 2:
+            # Exit code 2 = completed with warnings (e.g. missing PDFs in Step 1)
+            print(f"\nStep {step_num} completed with warnings — see above.")
+            sys.argv = original_argv
+            return
         if e.code != 0:
             print(f"\nStep {step_num} exited with code {e.code}.")
             raise

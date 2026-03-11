@@ -173,7 +173,7 @@ def get_share_balance_on_date(rows, target_date, col_date, col_share, fund=""):
     Return the share balance for the last row on or before target_date.
 
     Always computes from Buy/Sell transactions (col B/D) — works correctly
-    whether or not the file has been opened in Excel after Step 4 insertions.
+    whether or not the file has been opened in Excel after Step 2 insertions.
 
     If col G has a cached value for the same row, cross-checks against it.
     A mismatch is a warning (possible spreadsheet integrity issue), not an error.
@@ -201,8 +201,9 @@ def get_share_balance_on_date(rows, target_date, col_date, col_share, fund=""):
                 print(f"  {label}WARNING: Share balance mismatch on {best_date} — "
                       f"computed {best_share:,.4f} from Buy/Sell vs cached {cached:,.4f} in col G. "
                       f"Check your spreadsheet for missing or incorrect transactions.")
+                return best_share, True   # (value, had_warning)
 
-    return best_share
+    return best_share, False   # (value, had_warning)
 
 # ── Account period helpers ────────────────────────────────────────────────────
 
@@ -325,6 +326,7 @@ def main():
 
     fund_data    = {}
     all_accounts = []
+    warning_count = 0
 
     for fund in funds:
         json_path = os.path.join(dist_dir, f"{fund}.json")
@@ -363,15 +365,21 @@ def main():
         rows = load_sheet(xls_path, fund)
         if rows is None:
             print(f"  WARNING: Sheet '{fund}' not found in {xls_path} — skipping.")
+            print(f"           Sheet name must match the fund ticker exactly.")
+            warning_count += 1
             continue
 
         # Build date → shares map
         shares_by_date = {}
         for d in record_dates:
-            shares = get_share_balance_on_date(rows, d, col_date, col_share, fund=fund)
+            shares, had_mismatch = get_share_balance_on_date(rows, d, col_date, col_share, fund=fund)
+            if had_mismatch:
+                warning_count += 1
             if shares is None:
                 print(f"  WARNING: Could not find share balance for {fund} on {d}")
+                print(f"           Make sure a Buy/Sell row exists on or before this date.")
                 shares = 0.0
+                warning_count += 1
             shares_by_date[d] = round(shares, 4)
 
         fund_data[fund] = {
@@ -382,6 +390,8 @@ def main():
 
     if not fund_data or not all_accounts:
         print("\nNo data collected. Exiting.")
+        if warning_count > 0:
+            sys.exit(2)
         return
 
     # Build per-account data: every account gets every distribution date for every fund.
@@ -427,6 +437,11 @@ def main():
             f.writelines(lines)
 
         print(f"Saved: {out_path}")
+
+    if warning_count > 0:
+        print(f"\n  WARNING: {warning_count} warning(s) — share balances may be incomplete.")
+        print(f"  Review the warnings above before running Step 4.")
+        sys.exit(2)
 
     print("\nDone.")
 

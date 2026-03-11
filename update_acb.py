@@ -1,7 +1,7 @@
 """
 update_acb.py
 -------------
-Step 4 of the T3 pipeline.
+Step 2 of the T3 pipeline.
 
 Reads distribution JSONs produced by parse_t3_pdfs.py (Step 1) and inserts
 ROC rows directly into the ACB spreadsheet in date order, one fund at a time.
@@ -14,7 +14,7 @@ Safety features:
   - Automatic rollback on any failure
   - Dry-run mode (--dry-run) to preview without touching the file
 
-CLI:
+CLI (via run_t3.py --step 2, or directly):
   python update_acb.py
   python update_acb.py --config config.json --year 2025
   python update_acb.py --funds VBAL ZCN
@@ -372,7 +372,7 @@ def insert_roc_rows(ws, roc_rows, existing_roc, year, dry_run, fund):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Step 4 — Insert ROC rows from T3 pipeline into ACB spreadsheet.",
+        description="Step 2 — Insert ROC rows from T3 pipeline into ACB spreadsheet.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -528,6 +528,9 @@ Examples:
     else:
         print()
         print(f"  Backup   : {os.path.basename(backup_path)}")
+
+    if total_warned > 0:
+        sys.exit(2)  # warnings present — run_t3.py will show "completed with warnings"
         print()
         print("  Done. Open the spreadsheet and verify the inserted rows look correct.")
         print("  If anything looks wrong, restore the backup by renaming it back to")

@@ -41,3 +41,4 @@ Desktop.ini
 .idea/
 .vscode/
 *.code-workspace
+test_pipeline.py
