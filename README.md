@@ -47,8 +47,8 @@ pip install pdfplumber openpyxl
 ### 1. Clone or download the repository
 
 ```
-git clone https://github.com/YOUR_USERNAME/t3_pipeline.git
-cd t3_pipeline
+git clone https://github.com/Vdimitrov73/t3_compute.git
+cd t3_compute
 ```
 
 Or download the ZIP from GitHub and extract it.
@@ -293,7 +293,7 @@ config rates and the known values. Verify current rates at
 Contributions are welcome. If you find a bug, have a feature request, or
 want to add support for additional fund families:
 
-1. [Open an issue](https://github.com/YOUR_USERNAME/t3_pipeline/issues)
+1. [Open an issue](https://github.com/Vdimitrov73/t3_compute/issues)
    describing the problem or suggestion
 2. Fork the repository
 3. Create a branch: `git checkout -b fix/your-fix-name`
