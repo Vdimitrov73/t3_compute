@@ -445,12 +445,16 @@ def main():
             print()
 
         # Strip internal tracking fields before writing JSON
+        # _nonCashAmount is saved as nonCashCapitalGains for use by update_acb.py
+        def clean_dist(d):
+            out = {k: v for k, v in d.items() if not k.startswith("_")}
+            if d.get("_nonCashAmount", 0):
+                out["nonCashCapitalGains"] = d["_nonCashAmount"]
+            return out
+
         clean = {
             "name": result["name"],
-            "distributions": [
-                {k: v for k, v in d.items() if not k.startswith("_")}
-                for d in result["distributions"]
-            ]
+            "distributions": [clean_dist(d) for d in result["distributions"]]
         }
 
         json_path = os.path.join(dist_dir, f"{fund}.json")

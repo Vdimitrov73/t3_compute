@@ -32,6 +32,7 @@ Precision:
 import argparse
 import json
 import os
+import sys
 import glob
 from datetime import datetime
 from collections import defaultdict
@@ -192,7 +193,7 @@ def compute_t3(funds, accounts, tax_rates):
                 pay_date  = dist["paymentDate"]
                 shares    = date_map.get(rec_date, 0.0)
                 total     = dist.get("total", 0.0)
-                non_cash  = dist.get("capitalGains", 0.0) if not dist.get("capitalGainsDistributedAsCash") else 0.0
+                non_cash  = dist.get("nonCashCapitalGains", dist.get("capitalGains", 0.0)) if not dist.get("capitalGainsDistributedAsCash") else dist.get("nonCashCapitalGains", 0.0)
                 cash_rcvd = shares * (total - non_cash)
 
                 acc_details.append(f"\n      Distribution record={rec_date} payment={pay_date}:")
@@ -297,6 +298,26 @@ def main():
     print(f"Dist dir  : {dist_dir}")
     print(f"Assets dir: {assets_dir}")
     print()
+
+    # ── Prerequisite checks ───────────────────────────────────────────────────
+    if not os.path.isdir(dist_dir):
+        print(f"ERROR: Distributions folder not found: {dist_dir}")
+        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        sys.exit(1)
+    dist_jsons = glob.glob(os.path.join(dist_dir, "*.json"))
+    if not dist_jsons:
+        print(f"ERROR: No distribution JSONs found in: {dist_dir}")
+        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        sys.exit(1)
+    if not os.path.isdir(assets_dir):
+        print(f"ERROR: Assets folder not found: {assets_dir}")
+        print("       Run Step 2 (build_assets.py) first.")
+        sys.exit(1)
+    asset_jsons = glob.glob(os.path.join(assets_dir, "*.json"))
+    if not asset_jsons:
+        print(f"ERROR: No account JSONs found in: {assets_dir}")
+        print("       Run Step 2 (build_assets.py) first.")
+        sys.exit(1)
 
     print(f"Loading distributions from: {dist_dir}")
     funds = load_distributions(dist_dir)

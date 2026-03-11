@@ -107,11 +107,16 @@ def load_sheet(xls_path, sheet_name):
     """
     Load a named sheet from an XLS or XLSX file.
     Returns list of rows (each row is a list of raw cell values), or None if sheet not found.
+
+    NOTE: opened WITHOUT data_only so formula strings are readable. Share balance is
+    computed by build_share_balance_map() from Buy/Sell rows instead of reading col G,
+    because newly inserted rows (written by update_acb.py) have uncached formula strings
+    that data_only=True would return as None.
     """
     ext = os.path.splitext(xls_path)[1].lower()
     if ext == ".xlsx":
         from openpyxl import load_workbook
-        wb = load_workbook(xls_path, data_only=True)
+        wb = load_workbook(xls_path, data_only=False)
         if sheet_name not in wb.sheetnames:
             return None
         ws = wb[sheet_name]
@@ -136,27 +141,66 @@ def load_sheet(xls_path, sheet_name):
             rows.append(row)
         return rows
 
-def get_share_balance_on_date(rows, target_date, col_date, col_share):
+def build_share_balance_map(rows, col_date, col_txn=1, col_shares=3):
     """
-    Return the share balance from col_share for the last row on or before target_date.
-    col_date and col_share are 0-based column indices from config.
-    """
-    best_date  = None
-    best_share = None
+    Compute the running share balance for every row by walking Buy/Sell entries.
+    Returns a list of (date, balance) pairs in row order, skipping non-date rows.
 
+    This avoids reading col G (Share Balance) which is a formula column — openpyxl
+    returns None for formula cells in files that have never been opened by Excel
+    (e.g. rows freshly inserted by update_acb.py).
+    """
+    balance = 0.0
+    result  = []  # list of (date, balance_after_this_row)
     for row in rows:
-        if len(row) <= col_share:
+        if len(row) <= max(col_date, col_txn, col_shares):
             continue
         d = parse_date(row[col_date])
         if d is None:
             continue
-        shares = parse_number(row[col_share])
-        if shares is None:
-            continue
+        txn = str(row[col_txn]).strip() if row[col_txn] is not None else ""
+        shares_val = parse_number(row[col_shares]) or 0.0
+        if txn == "Buy":
+            balance = round(balance + shares_val, 4)
+        elif txn == "Sell":
+            balance = round(balance - shares_val, 4)
+        # ROC rows: balance unchanged
+        result.append((d, balance))
+    return result
+
+def get_share_balance_on_date(rows, target_date, col_date, col_share, fund=""):
+    """
+    Return the share balance for the last row on or before target_date.
+
+    Always computes from Buy/Sell transactions (col B/D) — works correctly
+    whether or not the file has been opened in Excel after Step 4 insertions.
+
+    If col G has a cached value for the same row, cross-checks against it.
+    A mismatch is a warning (possible spreadsheet integrity issue), not an error.
+    """
+    balance_map = build_share_balance_map(rows, col_date)
+    best_date   = None
+    best_share  = None
+    best_row_idx = None
+
+    for i, (d, bal) in enumerate(balance_map):
         if d <= target_date:
             if best_date is None or d >= best_date:
-                best_date  = d
-                best_share = shares
+                best_date    = d
+                best_share   = bal
+                best_row_idx = i
+
+    # Cross-check against cached col G value if available
+    if best_share is not None and best_row_idx is not None:
+        # Find the actual spreadsheet row that corresponds to best_row_idx
+        data_rows = [row for row in rows if len(row) > col_date and parse_date(row[col_date]) is not None]
+        if best_row_idx < len(data_rows):
+            cached = parse_number(data_rows[best_row_idx][col_share]) if len(data_rows[best_row_idx]) > col_share else None
+            if cached is not None and abs(cached - best_share) > 0.001:
+                label = f"[{fund}] " if fund else ""
+                print(f"  {label}WARNING: Share balance mismatch on {best_date} — "
+                      f"computed {best_share:,.4f} from Buy/Sell vs cached {cached:,.4f} in col G. "
+                      f"Check your spreadsheet for missing or incorrect transactions.")
 
     return best_share
 
@@ -241,6 +285,21 @@ def main():
 
     os.makedirs(assets_dir, exist_ok=True)
 
+    # ── Prerequisite check ────────────────────────────────────────────────────
+    if not os.path.exists(xls_path):
+        print(f"ERROR: ACB spreadsheet not found: {xls_path}")
+        print("       Update 'acb_spreadsheet' in config.json.")
+        sys.exit(1)
+    if not os.path.isdir(dist_dir):
+        print(f"ERROR: Distributions folder not found: {dist_dir}")
+        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        sys.exit(1)
+    dist_jsons = [f for f in os.listdir(dist_dir) if re.match(r'^[A-Z]+\.json$', f)]
+    if not dist_jsons:
+        print(f"ERROR: No distribution JSONs found in: {dist_dir}")
+        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        sys.exit(1)
+
     # Load account periods from account_periods.json
     all_periods = load_account_periods(args.config)
 
@@ -309,7 +368,7 @@ def main():
         # Build date → shares map
         shares_by_date = {}
         for d in record_dates:
-            shares = get_share_balance_on_date(rows, d, col_date, col_share)
+            shares = get_share_balance_on_date(rows, d, col_date, col_share, fund=fund)
             if shares is None:
                 print(f"  WARNING: Could not find share balance for {fund} on {d}")
                 shares = 0.0

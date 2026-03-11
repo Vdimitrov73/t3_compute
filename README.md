@@ -1,16 +1,15 @@
 # T3 Compute Pipeline
 
 A Python pipeline for Canadian ETF investors that reads CDS T3 tax PDFs,
-computes per-account T3 slip totals, and generates ACB (Adjusted Cost Base)
-helper entries.
+computes per-account T3 slip totals, and inserts ROC entries directly into
+your ACB spreadsheet.
 
 Built for investors who:
 - Hold Canadian ETFs that issue T3 slips (e.g. Vanguard, BMO, iShares)
 - Track their own ACB in a spreadsheet
 - Receive CDS Innovations T3 statements and want to automate the math
 
-
-** Download latest release (zip): https://github.com/Vdimitrov73/t3_compute/releases/latest
+**[⬇ Download latest release (zip)](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
 
 ---
 
@@ -34,8 +33,9 @@ pip install pdfplumber openpyxl
 |---|---|
 | `run_t3.py` | Main entry point — interactive menu or CLI |
 | `parse_t3_pdfs.py` | Step 1 — parses CDS T3 PDFs into JSON |
-| `build_assets.py` | Step 2 — reads ACB spreadsheet → per-account share JSONs |
-| `compute_t3.py` | Step 3 — computes final T3 slip totals |
+| `update_acb.py` | Step 2 — inserts ROC rows directly into your ACB spreadsheet |
+| `build_assets.py` | Step 3 — reads ACB spreadsheet → per-account share JSONs |
+| `compute_t3.py` | Step 4 — computes final T3 slip totals |
 | `config.template.json` | Template configuration — copy to `config.json` and edit |
 | `account_periods.template.json` | Template account periods — copy to `account_periods.json` and edit |
 | `funds.template.json` | Template fund metadata — copy to `funds.json` and edit |
@@ -85,8 +85,13 @@ Key rules:
 - Sheet names must match the fund symbols in `config.json`
 - Column layout must match the template — do not add or remove columns
   unless you also update `col_indices` in `config.json`
-- The script only reads **Col A** (date) and **Col G** (share balance)
-- You are responsible for maintaining correct share balances and ACB values
+- The pipeline computes your share balance from **Col A** (date), **Col B**
+  (transaction type), and **Col D** (shares). Col G is cross-checked when
+  available but does not need to be recalculated before running
+- You are responsible for entering correct Buy/Sell transactions and maintaining
+  accurate ACB values
+- Formulas are chained — do not sort or insert ROC rows manually.
+  Use Step 2 to do this safely.
 
 ### 5. Edit config.json
 
@@ -132,9 +137,9 @@ distribution record date. Add one entry per fund per account period:
 - `start` — the date from which this account was active for this fund
 - `account` — a label for the brokerage account (used in output filenames
   and T3 results — use whatever name is meaningful to you)
-- If a fund was always in one account for the whole year, just one entry
-  with `"start"` set to before the first distribution record date is enough
-- Each year add a new year key (e.g. `"2026": { ... }`) — do not delete
+- If a fund stayed in one account all year, one entry with `"start"` set to
+  before the first distribution record date is enough
+- Each year, add a new year key (e.g. `"2026": { ... }`) — do not delete
   prior years
 
 ### 7. Edit funds.json (rarely needed)
@@ -162,19 +167,21 @@ Check the CDS T3 PDF header — it will say either RATE or PERCENT.
 python run_t3.py
 ```
 
-A menu appears. Choose a step or run all three in sequence.
+A menu appears. Choose a step or run all four in sequence.
 You will be prompted for any year or fund overrides.
 
 ### CLI mode
 
 ```
-python run_t3.py --help                        Show all options
-python run_t3.py --all                         Run all three steps
-python run_t3.py --step 1                      Parse PDFs only
-python run_t3.py --step 2                      Build assets only
-python run_t3.py --step 3                      Compute T3 only
-python run_t3.py --all --year 2026             Override tax year
-python run_t3.py --step 1 --funds VBAL ZCN    Process specific funds only
+python run_t3.py --help                         Show all options
+python run_t3.py --all                          Run all four steps
+python run_t3.py --step 1                       Parse PDFs only
+python run_t3.py --step 2                       Update ACB spreadsheet
+python run_t3.py --step 2 --dry-run             Preview ACB insertions without modifying file
+python run_t3.py --step 3                       Build assets only
+python run_t3.py --step 4                       Compute T3 only
+python run_t3.py --all --year 2026              Override tax year
+python run_t3.py --step 1 --funds VBAL ZCN     Process specific funds only
 ```
 
 ---
@@ -192,26 +199,60 @@ https://ctbsext.posttrade.cds.ca/ctbsExt/
 - `<base_dir>\<year>\distributions\<FUND>.json` — per-unit distribution
   amounts for each T3 box and record date
 - `<base_dir>\<year>\distributions\<FUND>_ACB_<year>.xlsx` — ROC rows
-  ready to paste into your ACB spreadsheet
+  as a standalone Excel file if you prefer to copy/paste manually
 
 Run this once when CDS releases the T3 PDFs (usually February).
 
-### Step 2 — Build Assets
+### Step 2 — Update ACB Spreadsheet
 
 **Input:**
 - Distribution JSONs from Step 1
 - Your ACB spreadsheet
 
-**Output:** `<base_dir>\<year>\assets\<AccountName>_<year>.json` — one file
-per brokerage account showing how many shares you held on each record date
+**What it does:**
+- Creates a timestamped backup before touching the file
+- Inserts ROC rows for the configured tax year in date order
+- Skips rows that already exist (exact duplicate detection)
+- Warns you if a ROC row exists on the same date and sign with a different
+  amount, so you can review it manually before deciding what to do
+- Rewrites all formula chains after each insertion
+- Verifies formula integrity and rolls back automatically if anything fails
+- Only touches rows within the configured `tax_year` — prior year data
+  is never modified
 
-Run this after your ACB spreadsheet is finalized for the year.
+Use `--dry-run` to preview exactly what would be inserted before committing:
 
-### Step 3 — Compute T3
+```
+python run_t3.py --step 2 --dry-run
+```
+
+**Note on phantom distributions:** Some funds issue both a regular ROC
+(positive amount, reduces ACB) and a phantom non-cash ROC (negative amount,
+increases ACB) on the same date (e.g. Dec-30). Step 2 handles both
+automatically — they are treated as two distinct rows and both are inserted.
+
+Run Step 2 after Step 1 and after you have entered all Buy/Sell transactions
+for the year into the ACB spreadsheet.
+
+### Step 3 — Build Assets
 
 **Input:**
 - Distribution JSONs from Step 1
-- Account JSONs from Step 2
+- Your ACB spreadsheet (after Step 2 has been run)
+
+**Output:** `<base_dir>\<year>\assets\<AccountName>_<year>.json` — one file
+per brokerage account showing how many shares you held on each record date
+
+Share balances are computed directly from your Buy/Sell transactions, so you
+do not need to open the spreadsheet in Excel between Step 2 and Step 3. If
+the computed balance disagrees with the cached value in Col G, a warning will
+be shown — this usually means a transaction is missing or entered incorrectly.
+
+### Step 4 — Compute T3
+
+**Input:**
+- Distribution JSONs from Step 1
+- Account JSONs from Step 3
 
 **Output:** `<base_dir>\<year>\T3_results_<year>.txt` — T3 slip totals
 broken down by account, with full per-distribution detail
@@ -231,7 +272,9 @@ Boxes computed: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
 4. Verify gross-up rates in `config.json` — CRA occasionally changes these.
    Check [canada.ca](https://www.canada.ca/en/revenue-agency.html) if unsure.
    The script will warn you if the year is unrecognized.
-5. Run the pipeline
+5. Enter all Buy/Sell transactions for the year into the ACB spreadsheet
+6. Run Step 1 (parse PDFs), then Step 2 (update ACB spreadsheet)
+7. Run Step 3 (build assets), then Step 4 (compute T3 totals)
 
 ---
 
@@ -253,9 +296,23 @@ Boxes computed: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
 | 50 | Taxable Eligible Dividends | Box 49 × 1.38 |
 | 51 | Eligible Dividend Tax Credit | Box 50 × 0.150198 |
 
-### ACB Excel output (from Step 1)
+### ACB spreadsheet (template)
 
-The Excel file contains ROC rows to paste into your ACB spreadsheet:
+The included `acb_worksheet_template.xlsx` has one sheet per fund with:
+- **Blue cells** (cols A–E) — your inputs: date, transaction, price, shares, commission
+- **Black cells** (cols F–J) — calculated formulas: capital gains, share balance,
+  ACB change, cumulative ACB, and ACB per share
+- A dropdown on col B for Buy / Sell / ROC
+
+Formulas are chained — each row references the row above. Do not sort or
+insert rows manually. Use Step 2 to insert ROC rows safely.
+
+### ACB Excel helper file (from Step 1)
+
+Step 1 also outputs `<FUND>_ACB_<year>.xlsx` — a standalone file with just
+the ROC rows for that year. This is useful if you prefer to copy/paste entries
+manually, or if you use a different ACB spreadsheet layout than the template.
+
 - **Positive price/share** — regular ROC, reduces your ACB
 - **Negative price/share** — phantom (non-cash) distribution, increases
   your ACB even though no cash was received
@@ -265,15 +322,31 @@ The Excel file contains ROC rows to paste into your ACB spreadsheet:
 ## Troubleshooting
 
 **"No T3 JSON files found"**
-Run Step 1 before Step 2.
+Run Step 1 before Steps 2, 3, or 4.
 
 **"Sheet 'VBAL' not found"**
 The ACB spreadsheet does not have a sheet named `VBAL`. Sheet names must
 match the fund tickers exactly.
 
 **"Could not find share balance for VBAL on 2025-04-01"**
-No row in the VBAL sheet has a date on or before 2025-04-01. Check that
-your ACB spreadsheet has transactions entered before this record date.
+No Buy or Sell row in the VBAL sheet has a date on or before 2025-04-01.
+Make sure your ACB spreadsheet has transactions entered before this record date.
+
+**Share balance mismatch warning in Step 3**
+The balance computed from your Buy/Sell rows disagrees with the cached value
+in Col G. This usually means a transaction is missing, entered on the wrong
+date, or Col G was manually edited. Check your spreadsheet before relying on
+the Step 4 results.
+
+**Step 2 warning: "ROC row exists with different amount"**
+A ROC row already exists on that date with the same sign but a different
+per-unit amount. Step 2 skips it to be safe — review the
+`<FUND>_ACB_<year>.xlsx` file from Step 1 and correct the row manually.
+
+**Step 2 rolled back automatically**
+A formula integrity check failed after insertion. Your spreadsheet has been
+restored from the backup automatically. Open an issue on GitHub with the
+error message and we will investigate.
 
 **PDF parsing warning: "No distributions found"**
 The PDF layout may differ from expected. Check that:
@@ -284,8 +357,8 @@ The PDF layout may differ from expected. Check that:
   `"PERCENT"` explicitly
 
 **Gross-up rate warning**
-The script detected an unrecognized tax year or a mismatch between your
-config rates and the known values. Verify current rates at
+The script detected an unrecognized tax year or a mismatch with known CRA
+rates. Verify current rates at
 [canada.ca](https://www.canada.ca/en/revenue-agency.html) and update
 `tax_rates` in `config.json`.
 
