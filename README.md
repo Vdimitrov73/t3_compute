@@ -111,7 +111,13 @@ pip install pdfplumber openpyxl xlrd
 > `pdfplumber` and `openpyxl` handle 2025 and later (CDS switched to PDF in 2025).
 > `xlrd` is required for 2024 and earlier, when CDS issued T3 statements as `.xls` files.
 
-### 3. Create your config files from the templates
+### 3. Create your config files
+
+**Option A (.exe) and Option B (setup.bat) users:**
+Run the tool — the setup wizard creates your config files automatically on first launch.
+
+**Option C (manual) users:**
+Either run `python run_t3.py` and let the wizard create them, or copy the templates manually:
 
 ```
 copy config.template.json config.json
@@ -220,7 +226,11 @@ Check the CDS T3 PDF header — it will say either RATE or PERCENT.
 python run_t3.py
 ```
 
-A menu appears. Choose a step or run all four in sequence.
+The first time you run it, a setup wizard walks you through creating your
+config files — tax year, folder paths, fund list, and brokerage accounts.
+Once setup is complete it goes straight to the main menu on every subsequent run.
+
+From the menu, choose a step or run all four in sequence.
 You will be prompted for any year or fund overrides.
 
 ### CLI mode
