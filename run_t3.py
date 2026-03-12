@@ -37,7 +37,13 @@ Pipeline steps:
              Reads the distribution JSONs and account JSONs, computes
              T3 slip totals per account, and saves a results text file.
 
-Config files (must be in the same directory as this script):
+Config files:
+    Python script (python run_t3.py / setup.bat):
+        Same directory as this script — no change from previous behaviour.
+    Bundled .exe (PyInstaller / Microsoft Store):
+        %%LOCALAPPDATA%%\\T3Compute\\
+        e.g. C:\\Users\\<you>\\AppData\\Local\\T3Compute\\
+
     config.json           — tax year, paths, fund list, tax rates
     account_periods.json  — brokerage account periods per fund per year
     funds.json            — per-fund PDF parsing hints
@@ -49,6 +55,30 @@ import os
 import json
 import shutil
 from datetime import date
+
+# ── Config directory ─────────────────────────────────────────────────────────
+
+def get_config_dir(script_dir):
+    """
+    Return the directory where config files should be read/written.
+
+    - PyInstaller bundle (.exe / MSIX): uses %LOCALAPPDATA%\\T3Compute\\
+      The PyInstaller extraction folder (script_dir) is a temp path that is
+      deleted on exit, so config files must live elsewhere.
+    - Regular Python script: uses script_dir, preserving existing behaviour
+      for setup.bat and command-line users.
+    """
+    if getattr(sys, "frozen", False):
+        # Running as PyInstaller bundle
+        local_app_data = os.environ.get(
+            "LOCALAPPDATA",
+            os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        )
+        config_dir = os.path.join(local_app_data, "T3Compute")
+        os.makedirs(config_dir, exist_ok=True)
+        return config_dir
+    return script_dir
+
 
 # ── First-run setup wizard ────────────────────────────────────────────────────
 
@@ -75,7 +105,7 @@ def _separator():
     print("  " + "─" * 56)
     print()
 
-def run_first_time_setup(script_dir, config_path, periods_path, funds_path):
+def run_first_time_setup(script_dir, config_dir, config_path, periods_path, funds_path):
     """
     Interactive wizard that creates config.json, account_periods.json,
     and funds.json for a new user. Only called when at least one of these
@@ -126,7 +156,7 @@ def run_first_time_setup(script_dir, config_path, periods_path, funds_path):
     print("  If you haven't created it yet, copy acb_worksheet_template.xlsx")
     print("  and fill in your Buy/Sell transactions first.")
     print()
-    default_acb = os.path.join(script_dir, "acb_worksheet.xlsx")
+    default_acb = os.path.join(config_dir, "acb_worksheet.xlsx")
     while True:
         acb_path = _prompt("ACB spreadsheet path", default=default_acb)
         if acb_path:
@@ -324,15 +354,18 @@ def run_first_time_setup(script_dir, config_path, periods_path, funds_path):
     input("  Press Enter to continue to the main menu...")
 
 
-def check_and_run_setup(script_dir, args):
+def check_and_run_setup(script_dir, config_dir, args):
     """
     Check if any config files are missing. If so, run the first-time wizard.
     Only called in interactive mode — CLI mode (--step / --all) skips this
     entirely to avoid blocking automation.
     """
-    config_path  = args.config
-    periods_path = os.path.join(script_dir, "account_periods.json")
-    funds_path   = os.path.join(script_dir, "funds.json")
+    config_path  = os.path.join(config_dir, "config.json")
+    periods_path = os.path.join(config_dir, "account_periods.json")
+    funds_path   = os.path.join(config_dir, "funds.json")
+
+    # Keep args.config in sync so run_step() picks up the right path
+    args.config = config_path
 
     missing = []
     if not os.path.exists(config_path):
@@ -353,7 +386,7 @@ def check_and_run_setup(script_dir, args):
     print()
     print(f"  Missing: {', '.join(missing)}")
 
-    run_first_time_setup(script_dir, config_path, periods_path, funds_path)
+    run_first_time_setup(script_dir, config_dir, config_path, periods_path, funds_path)
 
 
 # ── Step metadata ─────────────────────────────────────────────────────────────
@@ -573,6 +606,13 @@ def main():
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
 
+    config_dir = get_config_dir(script_dir)
+
+    # For Python/script users, sys.path already has script_dir.
+    # For .exe users, also add config_dir so the pipeline scripts can be found.
+    if config_dir not in sys.path:
+        sys.path.insert(0, config_dir)
+
     args = parse_args()
 
     # Default dry_run to False if not set (older argparse won't have it)
@@ -581,7 +621,7 @@ def main():
 
     # First-run setup wizard — only in interactive mode, never in CLI mode
     if args.step is None and not args.all:
-        check_and_run_setup(script_dir, args)
+        check_and_run_setup(script_dir, config_dir, args)
         interactive_mode(args)
     elif args.all:
         try:
