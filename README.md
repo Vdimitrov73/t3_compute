@@ -13,41 +13,47 @@ Built for investors who:
 
 ---
 
-## Prerequisites
+## Installation
 
-- **Python 3.9 or later** — [python.org/downloads](https://www.python.org/downloads/)
-- The following Python packages (install once):
+Choose the option that works best for you.
+
+---
+
+### Option A — Download the .exe (easiest)
+
+**[⬇ Download t3_compute.exe](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
+
+No Python required. Double-click to run.
+
+> **Windows SmartScreen warning?** Click **"More info"** then **"Run anyway"**.
+> This warning appears because the executable is not signed with a paid
+> EV code signing certificate (~$500 USD/year). The tool is open source —
+> you can inspect every line of code on GitHub, or build the `.exe` yourself.
+> See [BUILD_EXE.md](BUILD_EXE.md) for details.
+
+---
+
+### Option B — Python + setup.bat (recommended for most users)
+
+1. Install **Python 3.9 or later** from [python.org/downloads](https://www.python.org/downloads/)
+   - On the installer's first screen, check **"Add Python to PATH"** before clicking Install
+2. Download and extract the [ZIP from GitHub](https://github.com/Vdimitrov73/t3_compute/releases/latest)
+3. Double-click **`setup.bat`** — it installs all required packages automatically
+4. Continue to [Setup (one time)](#setup-one-time) below
+
+---
+
+### Option C — Manual Python setup (developers / git users)
+
+**Prerequisites:**
+- Python 3.9 or later
+- The following packages (install once):
 
 ```
 pip install pdfplumber openpyxl xlrd
 ```
 
-> `pdfplumber` and `openpyxl` are used for 2025 and later (CDS switched to PDF format in 2025).
-> `xlrd` is required for prior years (2024 and earlier), when CDS issued T3 statements as `.xls` files.
-
----
-
-## Files in this folder
-
-| File | Purpose |
-|---|---|
-| `run_t3.py` | Main entry point — interactive menu or CLI |
-| `parse_t3_pdfs.py` | Step 1 — parses CDS T3 PDFs (2025+) or XLS files (2024 and earlier) into JSON |
-| `update_acb.py` | Step 2 — inserts ROC rows directly into your ACB spreadsheet |
-| `build_assets.py` | Step 3 — reads ACB spreadsheet → per-account share JSONs |
-| `compute_t3.py` | Step 4 — computes final T3 slip totals |
-| `config.template.json` | Template configuration — copy to `config.json` and edit |
-| `account_periods.template.json` | Template account periods — copy to `account_periods.json` and edit |
-| `funds.template.json` | Template fund metadata — copy to `funds.json` and edit |
-| `acb_worksheet_template.xlsx` | Template ACB spreadsheet — copy and fill in your data |
-| `README.md` | This file |
-| `LICENSE` | MIT License |
-
----
-
-## Setup (one time)
-
-### 1. Clone or download the repository
+Clone the repository:
 
 ```
 git clone https://github.com/Vdimitrov73/t3_compute.git
@@ -56,11 +62,49 @@ cd t3_compute
 
 Or download the ZIP from GitHub and extract it.
 
-### 2. Install dependencies
+---
+
+| File | Purpose |
+|---|---|
+| `run_t3.py` | Main entry point — interactive menu or CLI |
+| `parse_t3_pdfs.py` | Step 1 — parses CDS T3 PDFs (2025+) or XLS files (2024 and earlier) into JSON |
+| `update_acb.py` | Step 2 — inserts ROC rows directly into your ACB spreadsheet |
+| `build_assets.py` | Step 3 — reads ACB spreadsheet → per-account share JSONs |
+| `compute_t3.py` | Step 4 — computes final T3 slip totals |
+| `setup.bat` | First-time setup for Windows — installs Python packages automatically |
+| `config.template.json` | Template configuration — copy to `config.json` and edit |
+| `account_periods.template.json` | Template account periods — copy to `account_periods.json` and edit |
+| `funds.template.json` | Template fund metadata — copy to `funds.json` and edit |
+| `acb_worksheet_template.xlsx` | Template ACB spreadsheet — copy and fill in your data |
+| `BUILD_EXE.md` | How to build the .exe yourself + SmartScreen warning explained |
+| `README.md` | This file |
+| `LICENSE` | MIT License |
+
+---
+
+## Setup (one time)
+
+> **Option A (.exe) users:** skip to step 3 — no Python setup needed.
+> **Option B (setup.bat) users:** skip steps 1 and 2 — setup.bat handled them.
+> **Option C (manual) users:** complete all steps below.
+
+### 1. Get the files
 
 ```
-pip install pdfplumber openpyxl
+git clone https://github.com/Vdimitrov73/t3_compute.git
+cd t3_compute
 ```
+
+Or download the ZIP from GitHub Releases and extract it.
+
+### 2. Install required packages
+
+```
+pip install pdfplumber openpyxl xlrd
+```
+
+> `pdfplumber` and `openpyxl` handle 2025 and later (CDS switched to PDF in 2025).
+> `xlrd` is required for 2024 and earlier, when CDS issued T3 statements as `.xls` files.
 
 ### 3. Create your config files from the templates
 

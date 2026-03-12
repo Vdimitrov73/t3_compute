@@ -1,0 +1,88 @@
+name: Build and Release .exe
+
+# Triggers on version tags like v1.2.3
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Check out source ───────────────────────────────────────────────
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ──────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 3. Install dependencies + PyInstaller ─────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pdfplumber openpyxl xlrd pyinstaller
+
+      # ── 4. Build the executable ───────────────────────────────────────────
+      # --onefile        : single self-contained .exe
+      # --console        : keep the console window (this is a CLI tool)
+      # --name           : output filename
+      # --hidden-import  : modules pdfplumber loads at runtime that
+      #                    PyInstaller's static analysis misses
+      - name: Build .exe with PyInstaller
+        run: |
+          pyinstaller `
+            --onefile `
+            --console `
+            --name t3_compute `
+            --hidden-import pdfplumber `
+            --hidden-import pdfminer `
+            --hidden-import pdfminer.high_level `
+            --hidden-import pdfminer.layout `
+            --hidden-import openpyxl `
+            --hidden-import xlrd `
+            run_t3.py
+
+      # ── 5. Compute SHA-256 hash for release notes ─────────────────────────
+      - name: Compute SHA-256
+        id: hash
+        run: |
+          $hash = (Get-FileHash dist\t3_compute.exe -Algorithm SHA256).Hash.ToLower()
+          echo "sha256=$hash" >> $env:GITHUB_OUTPUT
+          echo "SHA-256: $hash"
+
+      # ── 6. Create GitHub Release and upload the .exe ──────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            ## T3 Compute ${{ github.ref_name }}
+
+            ### Download
+            - **[t3_compute.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/t3_compute.exe)** — Windows standalone executable, no Python required
+
+            ### SmartScreen warning
+            Windows may show "Windows protected your PC" when you run this file.
+            Click **More info → Run anyway**. This warning appears because the
+            executable is not signed with a paid EV code signing certificate.
+            See [BUILD_EXE.md](https://github.com/${{ github.repository }}/blob/main/BUILD_EXE.md)
+            for details, or build the .exe yourself from source.
+
+            ### Verify integrity (optional)
+            ```
+            certutil -hashfile t3_compute.exe SHA256
+            ```
+            Expected: `${{ steps.hash.outputs.sha256 }}`
+
+            ### Python source (no .exe required)
+            Download the source ZIP below and run `setup.bat` or `python run_t3.py` directly.
+          files: dist/t3_compute.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

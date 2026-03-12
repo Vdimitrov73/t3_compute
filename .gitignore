@@ -13,6 +13,9 @@ funds.json
 */assets/
 T3_results_*.txt
 
+# ── Tests (local only) ────────────────────────────────────────────────────────
+test_pipeline.py
+
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -24,6 +27,10 @@ __pycache__/
 dist/
 build/
 .eggs/
+
+# PyInstaller
+*.spec
+*.exe
 
 # Virtual environments
 .env
@@ -41,4 +48,3 @@ Desktop.ini
 .idea/
 .vscode/
 *.code-workspace
-test_pipeline.py
