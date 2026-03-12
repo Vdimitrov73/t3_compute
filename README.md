@@ -19,11 +19,11 @@ Built for investors who:
 - The following Python packages (install once):
 
 ```
-pip install pdfplumber openpyxl
+pip install pdfplumber openpyxl xlrd
 ```
 
-> If your ACB spreadsheet is in the older `.xls` format (rare), also run:
-> `pip install xlrd==1.2.0`
+> `pdfplumber` and `openpyxl` are used for 2025 and later (CDS switched to PDF format in 2025).
+> `xlrd` is required for prior years (2024 and earlier), when CDS issued T3 statements as `.xls` files.
 
 ---
 
@@ -32,7 +32,7 @@ pip install pdfplumber openpyxl
 | File | Purpose |
 |---|---|
 | `run_t3.py` | Main entry point — interactive menu or CLI |
-| `parse_t3_pdfs.py` | Step 1 — parses CDS T3 PDFs into JSON |
+| `parse_t3_pdfs.py` | Step 1 — parses CDS T3 PDFs (2025+) or XLS files (2024 and earlier) into JSON |
 | `update_acb.py` | Step 2 — inserts ROC rows directly into your ACB spreadsheet |
 | `build_assets.py` | Step 3 — reads ACB spreadsheet → per-account share JSONs |
 | `compute_t3.py` | Step 4 — computes final T3 slip totals |
@@ -109,8 +109,12 @@ Open `config.json` and update these three fields:
 - `base_dir` — folder where your T3 PDFs live and where output will be written
 - `acb_spreadsheet` — full path to your ACB spreadsheet
 
-The pipeline expects your CDS T3 PDFs to be named like `VBAL_T3_2025.pdf`
-and placed in `<base_dir>\2025\`.
+The pipeline expects your CDS T3 source files in `<base_dir>\<year>\`:
+- **2025 and later:** PDFs named `<FUND>_T3_<year>.pdf` (e.g. `VBAL_T3_2025.pdf`)
+- **2024 and earlier:** XLS files named `<FUND>_T3_<year>.xls` (e.g. `VBAL_T3_2024.xls`)
+
+CDS Innovations switched from XLS to PDF format starting with the 2025 tax year.
+The pipeline automatically uses the correct parser based on the `tax_year` in `config.json`.
 
 Output folders `distributions\` and `assets\` will be created automatically
 inside `<base_dir>\2025\`.
@@ -188,12 +192,18 @@ python run_t3.py --step 1 --funds VBAL ZCN     Process specific funds only
 
 ## Pipeline steps explained
 
-### Step 1 — Parse T3 PDFs
+### Step 1 — Parse T3 Source Files
 
-Download the CDS T3 PDFs for your funds from:
+Download the CDS T3 statements for your funds from:
 https://ctbsext.posttrade.cds.ca/ctbsExt/
 
-**Input:**  `<base_dir>\<year>\<FUND>_T3_<year>.pdf` for each fund
+**For 2025 and later (PDF format):**
+Save as `<FUND>_T3_<year>.pdf` in `<base_dir>\<year>\` (e.g. `VBAL_T3_2025.pdf`)
+
+**For 2024 and earlier (XLS format):**
+Save as `<FUND>_T3_<year>.xls` in `<base_dir>\<year>\` (e.g. `VBAL_T3_2024.xls`)
+
+The correct parser is selected automatically based on `tax_year` in `config.json`.
 
 **Output:**
 - `<base_dir>\<year>\distributions\<FUND>.json` — per-unit distribution
@@ -263,17 +273,17 @@ Boxes computed: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
 
 ## Annual checklist (each tax season)
 
-1. Download the CDS T3 PDFs for your funds from:
+1. Download the CDS T3 statements for your funds from:
    https://ctbsext.posttrade.cds.ca/ctbsExt/
-   Save them in `<base_dir>\<year>\` named `<FUND>_T3_<year>.pdf`
-   (e.g. `VBAL_T3_2026.pdf`)
+   - **2025 and later:** save as `<FUND>_T3_<year>.pdf` in `<base_dir>\<year>\`
+   - **2024 and earlier:** save as `<FUND>_T3_<year>.xls` in `<base_dir>\<year>\`
 2. Update `tax_year` in `config.json`
 3. Add a new year block to `account_periods.json`
 4. Verify gross-up rates in `config.json` — CRA occasionally changes these.
    Check [canada.ca](https://www.canada.ca/en/revenue-agency.html) if unsure.
    The script will warn you if the year is unrecognized.
 5. Enter all Buy/Sell transactions for the year into the ACB spreadsheet
-6. Run Step 1 (parse PDFs), then Step 2 (update ACB spreadsheet)
+6. Run Step 1 (parse T3 source files), then Step 2 (update ACB spreadsheet)
 7. Run Step 3 (build assets), then Step 4 (compute T3 totals)
 
 ---
@@ -348,13 +358,11 @@ A formula integrity check failed after insertion. Your spreadsheet has been
 restored from the backup automatically. Open an issue on GitHub with the
 error message and we will investigate.
 
-**PDF parsing warning: "No distributions found"**
-The PDF layout may differ from expected. Check that:
-- The file is named exactly `<FUND>_T3_<year>.pdf`
-- It is the CDS (Canadian Depository for Securities) T3 statement, not
-  the broker's version
-- Try setting `calc_method_override` in `funds.json` to `"RATE"` or
-  `"PERCENT"` explicitly
+**Step 1 warning: "No distributions found"**
+The file layout may differ from expected. Check that:
+- The file is named exactly `<FUND>_T3_<year>.pdf` (2025+) or `<FUND>_T3_<year>.xls` (2024 and earlier)
+- It is the CDS Innovations T3 statement, not the broker's version
+- Try setting `calc_method_override` in `funds.json` to `"RATE"` or `"PERCENT"` explicitly
 
 **Gross-up rate warning**
 The script detected an unrecognized tax year or a mismatch with known CRA

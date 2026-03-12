@@ -380,6 +380,203 @@ def to_json(obj, indent=0):
         return json.dumps(obj)
 
 
+# ── XLS extraction (prior years) ─────────────────────────────────────────────
+
+# Fixed row positions in the CDS T3 Excel template (1-indexed, openpyxl convention)
+_XLS_ROW_TOTAL     = 19
+_XLS_ROW_RECORD    = 20
+_XLS_ROW_PAYMENT   = 21
+_XLS_ROW_CASH      = 22
+_XLS_ROW_NONCASH   = 23
+_XLS_ROW_FIELDS = {
+    # row: (json_field, description)
+    25: ("capitalGains",                          "Capital gain"),
+    26: ("actualAmountOfEligibleDividends",        "Eligible dividends"),
+    27: ("actualAmountOfNonEligibleDividends",     "Non-eligible dividends"),
+    28: ("foreignBusinessIncome",                  "Foreign business income"),
+    29: ("foreignNonBusinessIncome",               "Foreign non-business income"),
+    30: ("otherIncome",                            "Other income"),
+    32: ("returnOfCapital",                        "Return of capital"),
+    34: ("capitalGainsEligibleForDeduction",       "Cap gains eligible for deduction"),
+    35: ("foreignBusinessIncomeTaxPaid",           "Foreign business income tax paid"),
+    36: ("foreignNonBusinessIncomeTaxPaid",        "Foreign non-business income tax paid"),
+}
+_XLS_COL_FIRST_DIST = 4   # column D = index 4 (1-based), up to 14 distributions
+
+
+def extract_distributions_from_xls(xls_path, fund_name, calc_method_override=None):
+    """
+    Parse a CDS T3 Excel (.xls) file (tax years 2024 and earlier) and return
+    the same dict structure as extract_distributions():
+        {
+            "name": fund_name,
+            "distributions": [ { recordDate, paymentDate, total, <box fields> }, ... ]
+        }
+
+    Requires: pip install xlrd
+    xlrd reads the binary OLE2 .xls format directly — no conversion needed.
+
+    Row layout (1-based, matching the CDS template):
+        Row 15 col G : calculation method (1=PERCENT, 2=RATE)
+        Row 19       : total distribution per unit
+        Row 20       : record dates
+        Row 21       : payment dates
+        Row 22       : total cash distribution per unit
+        Row 23       : total non-cash distribution per unit
+        Rows 25–36   : T3 box values (see _XLS_ROW_FIELDS)
+        Cols D–Q     : one column per distribution (up to 14)
+
+    Calculation methods:
+        RATE    (method=2): values are per-unit dollar amounts — use directly.
+        PERCENT (method=1): values are percentages of total — multiply by total/100.
+
+    calc_method_override: "RATE" or "PERCENT" — overrides the spreadsheet value.
+    """
+    try:
+        import xlrd
+    except ImportError:
+        raise ImportError(
+            "xlrd is required to parse CDS T3 XLS files (tax years 2024 and earlier).\n"
+            "Install it with:  pip install xlrd"
+        )
+
+    SHEET_NAME   = "T3, R16"
+    # xlrd uses 0-based row/col indices
+    # openpyxl-style (row, col) 1-based → xlrd (row-1, col-1)
+    ROW_TOTAL    = _XLS_ROW_TOTAL   - 1   # 18
+    ROW_RECORD   = _XLS_ROW_RECORD  - 1   # 19
+    ROW_PAYMENT  = _XLS_ROW_PAYMENT - 1   # 20
+    ROW_CASH     = _XLS_ROW_CASH    - 1   # 21
+    ROW_NONCASH  = _XLS_ROW_NONCASH - 1   # 22
+    COL_METHOD   = 6                       # col G = index 6 (0-based)
+    COL_FIRST    = _XLS_COL_FIRST_DIST - 1  # col D = index 3
+
+    wb = xlrd.open_workbook(xls_path)
+
+    sheet_names = wb.sheet_names()
+    if SHEET_NAME not in sheet_names:
+        raise ValueError(
+            f"Sheet '{SHEET_NAME}' not found in {xls_path}. "
+            f"Available sheets: {sheet_names}"
+        )
+    ws = wb.sheet_by_name(SHEET_NAME)
+
+    def cell(row0, col0):
+        """Return cell value using 0-based indices. Returns None for empty cells."""
+        try:
+            c = ws.cell(row0, col0)
+            if c.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                return None
+            if c.ctype == xlrd.XL_CELL_TEXT and c.value.strip() == "":
+                return None
+            return c.value
+        except IndexError:
+            return None
+
+    def cell_float(row0, col0):
+        """Return cell value as float, or None if empty/non-numeric."""
+        v = cell(row0, col0)
+        if v is None:
+            return None
+        try:
+            f = float(v)
+            return f if f != 0.0 else None
+        except (TypeError, ValueError):
+            return None
+
+    def parse_xls_date(v):
+        """Parse a date cell — xlrd may return a float (date serial) or string."""
+        if v is None:
+            return None
+        # xlrd sometimes returns date serials as floats
+        if isinstance(v, float):
+            try:
+                t = xlrd.xldate_as_tuple(v, wb.datemode)
+                return f"{t[0]:04d}-{t[1]:02d}-{t[2]:02d}"
+            except Exception:
+                pass
+        s = str(v).strip()
+        for fmt_str in ("%Y/%m/%d", "%Y-%m-%d"):
+            try:
+                from datetime import datetime as _dt
+                return _dt.strptime(s, fmt_str).strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+        return s   # return as-is if unparseable
+
+    # ── Determine calculation method ──────────────────────────────────────────
+    # Row 15, col G (0-based: row 14, col 6)
+    raw_method = cell(14, COL_METHOD)
+    if calc_method_override:
+        method = calc_method_override.upper()
+    elif raw_method == 1 or raw_method == 1.0:
+        method = "PERCENT"
+    elif raw_method == 2 or raw_method == 2.0:
+        method = "RATE"
+    else:
+        s = str(raw_method).upper() if raw_method else ""
+        if "PERCENT" in s or "PER CENT" in s or "%" in s:
+            method = "PERCENT"
+        else:
+            method = "RATE"   # safe default
+
+    distributions = []
+
+    # ── Iterate distribution columns D through Q (up to 14) ──────────────────
+    for col0 in range(COL_FIRST, COL_FIRST + 14):
+        record_date_raw  = cell(ROW_RECORD,  col0)
+        payment_date_raw = cell(ROW_PAYMENT, col0)
+        total_raw        = cell_float(ROW_TOTAL, col0)
+
+        if record_date_raw is None or total_raw is None:
+            break   # no more distributions
+
+        record_date  = parse_xls_date(record_date_raw)
+        payment_date = parse_xls_date(payment_date_raw)
+        total        = total_raw
+
+        non_cash = cell_float(ROW_NONCASH, col0) or 0.0
+        cash_val = cell_float(ROW_CASH,    col0)
+        cash     = cash_val if cash_val is not None else total
+
+        dist = {
+            "recordDate":  record_date,
+            "paymentDate": payment_date,
+            "total":       round(total, 7),
+        }
+
+        # ── Parse T3 box fields ───────────────────────────────────────────────
+        for row1, (field, _) in _XLS_ROW_FIELDS.items():
+            value = cell_float(row1 - 1, col0)   # convert 1-based to 0-based
+            if value is None:
+                continue
+            if method == "PERCENT":
+                # Value is a percentage (e.g. 93.39834 = 93.39834% of total)
+                value = round(total * value / 100.0, 7)
+            else:
+                value = round(value, 7)
+            dist[field] = value
+
+        # ── Tag phantom (non-cash) capital gains ──────────────────────────────
+        cap_gains = dist.get("capitalGains", 0.0)
+        if non_cash > 0.0 and cap_gains > 0.0:
+            if abs(cash) < 0.0001:
+                # Fully phantom — no cash received for the cap gains portion
+                dist["nonCashCapitalGains"] = round(cap_gains, 7)
+            elif non_cash < total:
+                # Partially phantom
+                dist["nonCashCapitalGains"] = round(non_cash, 7)
+                if non_cash < cap_gains:
+                    dist["capitalGainsDistributedAsCash"] = False
+        elif cap_gains > 0.0 and non_cash == 0.0:
+            # Fully cash — cap gains distributed as cash
+            dist["capitalGainsDistributedAsCash"] = True
+
+        distributions.append(dist)
+
+    return {"name": fund_name, "distributions": distributions}
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
@@ -401,31 +598,48 @@ def main():
     # Load per-fund metadata (calc_method_override etc.)
     funds_meta = load_funds_meta(args.config)
 
+    # CDS switched from XLS to PDF format starting with tax year 2025
+    use_pdf = int(tax_year) >= 2025
+
     print(f"Tax year : {tax_year}")
-    print(f"PDF dir  : {pdf_dir}")
+    print(f"Format   : {'PDF (2025+)' if use_pdf else 'XLS (2024 and earlier)'}")
+    print(f"Src dir  : {pdf_dir}")
     print(f"Dist dir : {dist_dir}")
     print()
 
     skipped = []
 
     for fund in funds:
-        pdf_path = os.path.join(pdf_dir, f"{fund}_T3_{tax_year}.pdf")
-        if not os.path.exists(pdf_path):
-            print(f"  WARNING: CDS PDF not found — skipping {fund}")
-            print(f"           Expected: {pdf_path}")
+        override = funds_meta.get(fund, {}).get("calc_method_override")
+
+        if use_pdf:
+            src_path = os.path.join(pdf_dir, f"{fund}_T3_{tax_year}.pdf")
+            src_type = "PDF"
+        else:
+            src_path = os.path.join(pdf_dir, f"{fund}_T3_{tax_year}.xls")
+            src_type = "XLS"
+
+        if not os.path.exists(src_path):
+            print(f"  WARNING: {src_type} not found — skipping {fund}")
+            print(f"           Expected : {src_path}")
             print(f"           Download from: https://ctbsext.posttrade.cds.ca/ctbsExt/")
-            print(f"           Save as: {fund}_T3_{tax_year}.pdf in the folder above")
             skipped.append(fund)
             continue
 
-        # Apply calc_method_override from funds.json if present
-        override = funds_meta.get(fund, {}).get("calc_method_override")
+        print(f"Processing {fund} ({src_type})..." + (f" [override: {override}]" if override else ""))
 
-        print(f"Processing {fund}..." + (f" [override: {override}]" if override else ""))
-        result = extract_distributions(pdf_path, fund, calc_method_override=override)
+        try:
+            if use_pdf:
+                result = extract_distributions(src_path, fund, calc_method_override=override)
+            else:
+                result = extract_distributions_from_xls(src_path, fund, calc_method_override=override)
+        except Exception as e:
+            print(f"  WARNING: Failed to parse {src_type} for {fund}: {e}")
+            skipped.append(fund)
+            continue
 
         if not result["distributions"]:
-            print(f"  WARNING: No distributions found for {fund} — PDF structure may differ")
+            print(f"  WARNING: No distributions found for {fund} — file structure may differ")
             print(f"           Check the file is the CDS T3 statement, not the broker version.")
             print(f"           Try setting calc_method_override in funds.json to 'RATE' or 'PERCENT'.")
             skipped.append(fund)
