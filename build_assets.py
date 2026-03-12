@@ -48,7 +48,7 @@ def _set_derived_paths(cfg, year):
     cfg["pdf_dir"]    = os.path.join(cfg["base_dir"], year)
     cfg["dist_dir"]   = os.path.join(cfg["base_dir"], year, "distributions")
     cfg["assets_dir"] = os.path.join(cfg["base_dir"], year, "assets")
-    cfg["output_txt"] = os.path.join(cfg["base_dir"], year, "t3_results.txt")
+    cfg["output_txt"] = os.path.join(cfg["base_dir"], year, f"T3_results_{year}.txt")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Build per-account share-balance JSONs from ACB spreadsheet.")
@@ -76,6 +76,8 @@ def parse_date(val):
     if isinstance(val, float):
         try:
             import xlrd
+            # datemode 0 = Windows 1900-epoch (correct for all modern .xls files)
+            # .xlsx files never produce float dates here (openpyxl returns date objects)
             t = xlrd.xldate_as_tuple(val, 0)
             return date(t[0], t[1], t[2])
         except Exception:

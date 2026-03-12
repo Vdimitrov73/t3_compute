@@ -527,14 +527,15 @@ Examples:
         print("  Nothing to do — all ROC rows already present.")
     else:
         print()
-        print(f"  Backup   : {os.path.basename(backup_path)}")
+        if backup_path:
+            print(f"  Backup   : {os.path.basename(backup_path)}")
 
     if total_warned > 0:
-        sys.exit(2)  # warnings present — run_t3.py will show "completed with warnings"
         print()
         print("  Done. Open the spreadsheet and verify the inserted rows look correct.")
         print("  If anything looks wrong, restore the backup by renaming it back to")
         print(f"  {os.path.basename(acb_path)}")
+        sys.exit(2)  # warnings present — run_t3.py will show "completed with warnings"
 
 if __name__ == "__main__":
     main()

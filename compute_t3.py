@@ -55,7 +55,6 @@ def _set_derived_paths(cfg, year):
     cfg["dist_dir"]   = os.path.join(cfg["base_dir"], year, "distributions")
     cfg["assets_dir"] = os.path.join(cfg["base_dir"], year, "assets")
     cfg["output_txt"] = os.path.join(cfg["base_dir"], year, f"T3_results_{year}.txt")
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Compute T3 slip totals per brokerage account.")
     parser.add_argument("--config", default="config.json", help="Path to config.json")

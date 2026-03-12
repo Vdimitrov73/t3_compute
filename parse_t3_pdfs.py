@@ -37,7 +37,7 @@ def _set_derived_paths(cfg, year):
     cfg["pdf_dir"]  = os.path.join(cfg["base_dir"], year)
     cfg["dist_dir"] = os.path.join(cfg["base_dir"], year, "distributions")
     cfg["assets_dir"] = os.path.join(cfg["base_dir"], year, "assets")
-    cfg["output_txt"] = os.path.join(cfg["base_dir"], year, "t3_results.txt")
+    cfg["output_txt"] = os.path.join(cfg["base_dir"], year, f"T3_results_{year}.txt")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Parse CDS T3 PDFs and output distribution JSON + ACB Excel.")
@@ -673,7 +673,7 @@ def main():
         # _nonCashAmount is saved as nonCashCapitalGains for use by update_acb.py
         def clean_dist(d):
             out = {k: v for k, v in d.items() if not k.startswith("_")}
-            if d.get("_nonCashAmount", 0):
+            if d.get("_nonCashAmount", 0) and "nonCashCapitalGains" not in out:
                 out["nonCashCapitalGains"] = d["_nonCashAmount"]
             return out
 

@@ -213,7 +213,13 @@ def run_first_time_setup(script_dir, config_path, periods_path, funds_path):
                     moved = _prompt_yn(f"  Did {fund} transfer again to another account?")
                 if not moved:
                     break
-                transfer_date = _prompt("  Transfer date (YYYY-MM-DD)")
+                while True:
+                    transfer_date = _prompt("  Transfer date (YYYY-MM-DD)")
+                    try:
+                        date.fromisoformat(transfer_date)
+                        break
+                    except (ValueError, TypeError):
+                        print("  Invalid date format — please enter as YYYY-MM-DD (e.g. 2025-08-11).")
                 print(f"  Which account did {fund} move to?")
                 for idx, acc in enumerate(accounts):
                     print(f"    {idx+1}. {acc}")
@@ -492,16 +498,16 @@ def run_step(step_num, args):
 
 def show_menu():
     print()
-    print("╔════════════════════════════════════════════════════════════╗")
-    print("║                    T3 Tax Pipeline                         ║")
-    print("╠════════════════════════════════════════════════════════════╣")
-    print("║  1  Parse T3 PDFs          Reads CDS PDFs → JSONs + ACB    ║")
-    print("║  2  Update ACB Spreadsheet Inserts ROC rows from Step 1    ║")
-    print("║  3  Build Assets           Reads ACB spreadsheet → JSONs   ║")
-    print("║  4  Compute T3             Reads JSONs → T3 slip totals    ║")
-    print("║  A  Run all steps in sequence                              ║")
-    print("║  Q  Quit                                                   ║")
-    print("╚════════════════════════════════════════════════════════════╝")
+    print("╔═══════════════════════════════════════════════════════════╗")
+    print("║                    T3 Tax Pipeline                        ║")
+    print("╠═══════════════════════════════════════════════════════════╣")
+    print("║  1  Parse T3 PDFs         Reads CDS PDFs → JSONs + ACB    ║")
+    print("║  2  Update ACB Spreadsheet  Inserts ROC rows from Step 1  ║")
+    print("║  3  Build Assets          Reads ACB spreadsheet → JSONs   ║")
+    print("║  4  Compute T3            Reads JSONs → T3 slip totals    ║")
+    print("║  A  Run all steps in sequence                             ║")
+    print("║  Q  Quit                                                  ║")
+    print("╚═══════════════════════════════════════════════════════════╝")
     print()
 
 def interactive_mode(args):
