@@ -86,11 +86,14 @@ jobs:
 
             ### Download
             - **[t3_compute_${{ github.ref_name }}.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/t3_compute_${{ github.ref_name }}.zip)** — Windows standalone bundle (no Python required)
+            - **[setup.bat](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/setup.bat)** — Python users: download this + the source ZIP below, run `setup.bat` to install dependencies
 
             **What's in the ZIP:**
             `t3_compute.exe`, `README.FIRST.txt`, config templates, ACB spreadsheet template, `README.md`, `BUILD_EXE.md`
 
-            **Getting started:** unzip anywhere, read `README.FIRST.txt`, fill in the config files, run `t3_compute.exe`.
+            **Getting started (no Python):** unzip anywhere, read `README.FIRST.txt`, fill in the config files, run `t3_compute.exe`.
+
+            **Getting started (Python):** download source ZIP + `setup.bat`, extract, double-click `setup.bat`.
 
             ### SmartScreen warning
             Windows may show "Windows protected your PC" when you run this file.
@@ -107,7 +110,9 @@ jobs:
 
             ### Python source
             Download the source ZIP below and run `setup.bat` or `python run_t3.py` directly.
-          files: ${{ env.ZIP_NAME }}
+          files: |
+            ${{ env.ZIP_NAME }}
+            setup.bat
           draft: false
           prerelease: false
         env:
