@@ -47,7 +47,28 @@ jobs:
             --hidden-import xlrd `
             run_t3.py
 
-      # ── 5. Compute SHA-256 hash for release notes ─────────────────────────
+      # ── 5. Bundle exe + templates + quick start into a zip ───────────────
+      - name: Create release ZIP
+        run: |
+          $version = "${{ github.ref_name }}"
+          $zipName = "t3_compute_$version.zip"
+
+          # Collect everything the user needs into a staging folder
+          New-Item -ItemType Directory -Path release_staging
+
+          Copy-Item dist\t3_compute.exe              release_staging\
+          Copy-Item README.FIRST.txt                 release_staging\
+          Copy-Item config.template.json             release_staging\
+          Copy-Item account_periods.template.json    release_staging\
+          Copy-Item funds.template.json              release_staging\
+          Copy-Item acb_worksheet_template.xlsx      release_staging\
+          Copy-Item README.md                        release_staging\
+          Copy-Item BUILD_EXE.md                     release_staging\
+
+          Compress-Archive -Path release_staging\* -DestinationPath $zipName
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      # ── 6. Compute SHA-256 of the exe (listed in release notes) ──────────
       - name: Compute SHA-256
         id: hash
         run: |
@@ -55,7 +76,7 @@ jobs:
           echo "sha256=$hash" >> $env:GITHUB_OUTPUT
           echo "SHA-256: $hash"
 
-      # ── 6. Create GitHub Release and upload the .exe ──────────────────────
+      # ── 7. Create GitHub Release and upload the zip ───────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -64,7 +85,12 @@ jobs:
             ## T3 Compute ${{ github.ref_name }}
 
             ### Download
-            - **[t3_compute.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/t3_compute.exe)** — Windows standalone executable, no Python required
+            - **[t3_compute_${{ github.ref_name }}.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/t3_compute_${{ github.ref_name }}.zip)** — Windows standalone bundle (no Python required)
+
+            **What's in the ZIP:**
+            `t3_compute.exe`, `README.FIRST.txt`, config templates, ACB spreadsheet template, `README.md`, `BUILD_EXE.md`
+
+            **Getting started:** unzip anywhere, read `README.FIRST.txt`, fill in the config files, run `t3_compute.exe`.
 
             ### SmartScreen warning
             Windows may show "Windows protected your PC" when you run this file.
@@ -73,17 +99,15 @@ jobs:
             See [BUILD_EXE.md](https://github.com/${{ github.repository }}/blob/main/BUILD_EXE.md)
             for details, or build the .exe yourself from source.
 
-            ### Verify integrity (optional)
+            ### Verify exe integrity (optional)
             ```
             certutil -hashfile t3_compute.exe SHA256
             ```
             Expected: `${{ steps.hash.outputs.sha256 }}`
 
-            ### Python source (no .exe required)
+            ### Python source
             Download the source ZIP below and run `setup.bat` or `python run_t3.py` directly.
-          files: |
-            dist/t3_compute.exe
-            setup.bat
+          files: ${{ env.ZIP_NAME }}
           draft: false
           prerelease: false
         env:
