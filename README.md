@@ -9,7 +9,7 @@ Built for investors who:
 - Track their own ACB in a spreadsheet
 - Receive CDS Innovations T3 statements and want to automate the math
 
-**[⬇ Download latest release (zip)](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
+**[⬇ Download latest release (ZIP bundle — no Python required)](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
 
 ---
 
@@ -19,11 +19,16 @@ Choose the option that works best for you.
 
 ---
 
-### Option A — Download the .exe (easiest)
+### Option A — Download the ZIP bundle (easiest)
 
-**[⬇ Download t3_compute.exe](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
+**[⬇ Download t3_compute.zip](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
 
-No Python required. Double-click to run.
+No Python required. Contains everything you need:
+`t3_compute.exe`, config templates, ACB spreadsheet template, and `README.FIRST.txt` with step-by-step setup instructions.
+
+1. Download and unzip anywhere (e.g. `C:\T3Compute\`)
+2. Read **`README.FIRST.txt`** — it walks you through the config files
+3. Double-click **`t3_compute.exe`**
 
 > **Windows SmartScreen warning?** Click **"More info"** then **"Run anyway"**.
 > This warning appears because the executable is not signed with a paid
@@ -84,7 +89,7 @@ Or download the ZIP from GitHub and extract it.
 
 ## Setup (one time)
 
-> **Option A (.exe) users:** skip to step 3 — no Python setup needed.
+> **Option A (ZIP bundle) users:** skip this entire Setup section — `README.FIRST.txt` inside the ZIP covers everything.
 > **Option B (setup.bat) users:** skip steps 1 and 2 — setup.bat handled them.
 > **Option C (manual) users:** complete all steps below.
 
