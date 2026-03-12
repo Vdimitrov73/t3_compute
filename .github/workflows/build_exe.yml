@@ -81,7 +81,9 @@ jobs:
 
             ### Python source (no .exe required)
             Download the source ZIP below and run `setup.bat` or `python run_t3.py` directly.
-          files: dist/t3_compute.exe
+          files: |
+            dist/t3_compute.exe
+            setup.bat
           draft: false
           prerelease: false
         env:
