@@ -42,7 +42,7 @@ No Python required. Contains everything you need:
 
 1. Install **Python 3.9 or later** from [python.org/downloads](https://www.python.org/downloads/)
    - On the installer's first screen, check **"Add Python to PATH"** before clicking Install
-2. Download and extract **Source code (zip)** from the [latest release](https://github.com/Vdimitrov73/t3_compute/releases/latest) — `setup.bat` is included inside
+2. Download and extract **[source code (zip)](https://github.com/Vdimitrov73/t3_compute/archive/refs/heads/main.zip)** — `setup.bat` is included inside
 3. Double-click **`setup.bat`** — it installs all required packages automatically
 4. Continue to [Setup (one time)](#setup-one-time) below
 
