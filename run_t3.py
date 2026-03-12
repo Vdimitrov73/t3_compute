@@ -156,7 +156,7 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
     print("  If you haven't created it yet, copy acb_worksheet_template.xlsx")
     print("  and fill in your Buy/Sell transactions first.")
     print()
-    default_acb = os.path.join(config_dir, "acb_worksheet.xlsx")
+    default_acb = os.path.join(base_dir, "acb_worksheet.xlsx")
     while True:
         acb_path = _prompt("ACB spreadsheet path", default=default_acb)
         if acb_path:
