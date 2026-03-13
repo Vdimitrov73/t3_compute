@@ -1,0 +1,111 @@
+# .gitlab-ci.yml
+# Builds and releases the t3_compute .exe on version tags (e.g. v1.4.2)
+# Equivalent to .github/workflows/build_exe.yml
+
+# Only run on version tags
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+
+stages:
+  - build
+  - release
+
+# ── 1. Build the executable ───────────────────────────────────────────────────
+build-exe:
+  stage: build
+  tags:
+    - saas-windows-medium-amd64   # GitLab shared Windows runner
+  script:
+    # Set up Python
+    - python --version
+
+    # Install dependencies (clean environment)
+    - python -m venv build_env
+    - build_env\Scripts\activate
+    - pip install pdfplumber openpyxl xlrd pyinstaller
+
+    # Build the exe
+    - >
+      pyinstaller
+      --onefile
+      --console
+      --name t3_compute
+      --hidden-import pdfplumber
+      --hidden-import pdfminer
+      --hidden-import pdfminer.high_level
+      --hidden-import pdfminer.layout
+      --hidden-import openpyxl
+      --hidden-import xlrd
+      run_t3.py
+
+    # Compute SHA-256
+    - $hash = (Get-FileHash dist\t3_compute.exe -Algorithm SHA256).Hash.ToLower()
+    - echo "SHA256=$hash" >> build.env
+    - echo "SHA-256 of exe $hash"
+
+    # Bundle into zip
+    - $version = $env:CI_COMMIT_TAG
+    - $zipName = "t3_compute_$version.zip"
+    - New-Item -ItemType Directory -Path release_staging
+    - Copy-Item dist\t3_compute.exe           release_staging\
+    - Copy-Item README.FIRST.txt              release_staging\
+    - Copy-Item config.template.json          release_staging\
+    - Copy-Item account_periods.template.json release_staging\
+    - Copy-Item funds.template.json           release_staging\
+    - Copy-Item acb_worksheet_template.xlsx   release_staging\
+    - Copy-Item README.md                     release_staging\
+    - Copy-Item BUILD_EXE.md                  release_staging\
+    - Compress-Archive -Path release_staging\* -DestinationPath $zipName
+    - echo "ZIP_NAME=$zipName" >> build.env
+
+  artifacts:
+    paths:
+      - dist/t3_compute.exe
+      - "*.zip"
+      - setup.bat
+    reports:
+      dotenv: build.env   # passes SHA256 and ZIP_NAME to release job
+    expire_in: 1 week
+
+# ── 2. Create GitLab Release and upload assets ────────────────────────────────
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build-exe
+      artifacts: true
+  script:
+    - echo "Creating release $CI_COMMIT_TAG"
+  release:
+    name: "$CI_COMMIT_TAG"
+    tag_name: "$CI_COMMIT_TAG"
+    description: |
+      ## T3 Compute $CI_COMMIT_TAG
+
+      ### Download
+      - **t3_compute_$CI_COMMIT_TAG.zip** — Windows standalone bundle (no Python required)
+      - **setup.bat** — Python users: download this + the source ZIP below, run `setup.bat`
+
+      **What's in the ZIP:**
+      `t3_compute.exe`, `README.FIRST.txt`, config templates, ACB spreadsheet template, `README.md`, `BUILD_EXE.md`
+
+      **Getting started (no Python):** unzip anywhere, read `README.FIRST.txt`, fill in the config files, run `t3_compute.exe`.
+
+      **Getting started (Python):** download source ZIP + `setup.bat`, extract, double-click `setup.bat`.
+
+      ### SmartScreen warning
+      Windows may show "Windows protected your PC" when you run this file.
+      Click **More info → Run anyway**.
+
+      ### Verify exe integrity (optional)
+      ```
+      certutil -hashfile t3_compute.exe SHA256
+      ```
+      Expected: `$SHA256`
+    assets:
+      links:
+        - name: "t3_compute_$CI_COMMIT_TAG.zip"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/t3_compute_$CI_COMMIT_TAG.zip?job=build-exe"
+        - name: "setup.bat"
+          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/setup.bat?job=build-exe"
