@@ -9,7 +9,9 @@ Built for investors who:
 - Track their own ACB in a spreadsheet
 - Receive CDS Innovations T3 statements and want to automate the math
 
-**[⬇ Download latest release (ZIP bundle — no Python required)](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
+**[⬇ Download latest release (ZIP bundle — no Python required)](https://gitlab.com/vdimitrov_73/t3_compute/-/releases/permalink/latest)**
+
+> **Source:** [GitLab](https://gitlab.com/vdimitrov_73/t3_compute) (primary) | [GitHub](https://github.com/Vdimitrov73/t3_compute) (mirror)
 
 ---
 
@@ -21,7 +23,7 @@ Choose the option that works best for you.
 
 ### Option A — Download the ZIP bundle (easiest)
 
-**[⬇ Download t3_compute.zip](https://github.com/Vdimitrov73/t3_compute/releases/latest)**
+**[⬇ Download t3_compute.zip](https://gitlab.com/vdimitrov_73/t3_compute/-/releases/permalink/latest)**
 
 No Python required. Contains everything you need:
 `t3_compute.exe`, config templates, ACB spreadsheet template, and `README.FIRST.txt` with step-by-step setup instructions.
@@ -33,7 +35,7 @@ No Python required. Contains everything you need:
 > **Windows SmartScreen warning?** Click **"More info"** then **"Run anyway"**.
 > This warning appears because the executable is not signed with a paid
 > EV code signing certificate (~$500 USD/year). The tool is open source —
-> you can inspect every line of code on GitHub, or build the `.exe` yourself.
+> you can inspect every line of code on GitLab, or build the `.exe` yourself.
 > See [BUILD_EXE.md](BUILD_EXE.md) for details.
 
 ---
@@ -42,7 +44,7 @@ No Python required. Contains everything you need:
 
 1. Install **Python 3.9 or later** from [python.org/downloads](https://www.python.org/downloads/)
    - On the installer's first screen, check **"Add Python to PATH"** before clicking Install
-2. Download and extract **[source code (zip)](https://github.com/Vdimitrov73/t3_compute/archive/refs/heads/main.zip)** — `setup.bat` is included inside
+2. Download and extract **[source code (zip)](https://gitlab.com/vdimitrov_73/t3_compute/-/archive/main/t3_compute-main.zip)** — `setup.bat` is included inside
 3. Double-click **`setup.bat`** — it installs all required packages automatically
 4. Continue to [Setup (one time)](#setup-one-time) below
 
@@ -61,7 +63,7 @@ pip install pdfplumber openpyxl xlrd
 Clone the repository:
 
 ```
-git clone https://github.com/Vdimitrov73/t3_compute.git
+git clone https://gitlab.com/vdimitrov_73/t3_compute.git
 cd t3_compute
 ```
 
@@ -96,7 +98,7 @@ Or download the ZIP from GitHub and extract it.
 ### 1. Get the files
 
 ```
-git clone https://github.com/Vdimitrov73/t3_compute.git
+git clone https://gitlab.com/vdimitrov_73/t3_compute.git
 cd t3_compute
 ```
 
@@ -436,12 +438,12 @@ rates. Verify current rates at
 Contributions are welcome. If you find a bug, have a feature request, or
 want to add support for additional fund families:
 
-1. [Open an issue](https://github.com/Vdimitrov73/t3_compute/issues)
+1. [Open an issue](https://gitlab.com/vdimitrov_73/t3_compute/-/issues)
    describing the problem or suggestion
-2. Fork the repository
+2. Fork the repository on [GitLab](https://gitlab.com/vdimitrov_73/t3_compute)
 3. Create a branch: `git checkout -b fix/your-fix-name`
 4. Make your changes and test them
-5. Submit a pull request with a clear description of what changed and why
+5. Submit a merge request with a clear description of what changed and why
 
 Please do not commit any personal financial data, real PDF files, or
 populated config files.

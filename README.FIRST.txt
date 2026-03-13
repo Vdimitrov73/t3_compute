@@ -51,16 +51,16 @@ Double-click t3_compute.exe and follow the interactive menu.
 ============================================================
 
 Full documentation:
-  https://github.com/Vdimitrov73/t3_compute
+  https://gitlab.com/vdimitrov_73/t3_compute
 
 Report an issue:
-  https://github.com/Vdimitrov73/t3_compute/issues
+  https://gitlab.com/vdimitrov_73/t3_compute/-/issues
 
 SmartScreen warning ("Windows protected your PC"):
   Click "More info" then "Run anyway". This appears because
   the exe is not signed with a paid EV code signing certificate
   (~$500 USD/year). The tool is open source — you can inspect
-  every line of code on GitHub before running it.
+  every line of code on GitLab before running it.
 
 ============================================================
   Disclaimer

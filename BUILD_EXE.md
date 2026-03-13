@@ -36,7 +36,7 @@ trusts automatically.
 ### Prerequisites
 
 - Python 3.9 or later installed and on your PATH
-- The t3_compute source code (clone or download the ZIP from GitHub)
+- The t3_compute source code (clone or download the ZIP from GitLab)
 
 ### Step 1 — Install PyInstaller and dependencies
 
@@ -78,16 +78,16 @@ You can verify this by inspecting the source code on GitHub before building.
 
 ## Notes for the CI/CD release build (maintainer only)
 
-The pre-built `.exe` in GitHub Releases is produced by the GitHub Actions
-workflow `.github/workflows/build_exe.yml` on a clean Windows runner.
+The pre-built `.exe` in GitLab Releases is produced by the GitLab CI
+workflow `.gitlab-ci.yml` on a clean Windows runner.
 The build command is identical to Step 2 above. The resulting binary is
 attached to the release automatically.
 
 To trigger a new build, create and push a version tag:
 
 ```
-git tag -a v1.3.0 -m "v1.3.0"
-git push origin v1.3.0
+git tag -a v1.4.2 -m "v1.4.2"
+git push origin v1.4.2
 ```
 
 ---
@@ -95,7 +95,7 @@ git push origin v1.3.0
 ## Verifying the pre-built .exe (optional)
 
 The SHA-256 hash of each release binary is listed in the release notes
-on GitHub. To verify on Windows:
+on GitLab. To verify on Windows:
 
 ```
 certutil -hashfile t3_compute.exe SHA256
