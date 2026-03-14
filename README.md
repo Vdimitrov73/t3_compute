@@ -122,11 +122,10 @@ python run_t3.py --help                       Show all options
 ## Documentation
 
 - [INSTALL.md](INSTALL.md) — installation options and first-time setup
+- [README.FIRST.txt](README.FIRST.txt) — quick start guide included in the ZIP bundle
 - [docs/PIPELINE.md](docs/PIPELINE.md) — detailed pipeline step documentation
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common errors and fixes
 - [docs/BUILD_EXE.md](docs/BUILD_EXE.md) — how to build the `.exe` yourself
-
----
 
 ## Contributing
 
