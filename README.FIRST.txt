@@ -2,49 +2,53 @@
   T3 Compute — Quick Start
 ============================================================
 
-STEP 1 — Copy and rename the config files
-------------------------------------------
-In this folder you will find three template files. Copy each
-one and remove the ".template" from the name:
+STEP 1 — Run the tool
+-----------------------
+Double-click t3_compute.exe.
 
-  config.template.json          →  config.json
-  account_periods.template.json →  account_periods.json
-  funds.template.json           →  funds.json
+On first launch, a setup wizard will guide you through
+creating your config files. It takes about two minutes.
 
-STEP 2 — Edit config.json
---------------------------
-Open config.json in Notepad and update these three fields:
-
-  "tax_year"        — the year you are processing (e.g. "2025")
-  "base_dir"        — the folder where your CDS T3 files are
-                      (e.g. "C:\\Users\\You\\Documents\\Tax")
-  "acb_spreadsheet" — full path to your ACB spreadsheet
-                      (e.g. "C:\\Users\\You\\Documents\\acb_worksheet.xlsx")
-
-Use double backslashes \\ in all file paths.
-
-STEP 3 — Copy and fill in your ACB spreadsheet
------------------------------------------------
-Copy acb_worksheet_template.xlsx and rename it (e.g. acb_worksheet.xlsx).
-Open it and read the README sheet inside before entering data.
-One sheet per fund, named exactly after the ticker (e.g. VBAL, ZCN).
-
-STEP 4 — Edit account_periods.json
+STEP 2 — Complete the setup wizard
 ------------------------------------
-This tells the tool which brokerage account held each fund on
-each distribution record date. See the template for the format.
-If you only have one account, one entry per fund is enough.
+The wizard will ask you for:
 
-STEP 5 — Download your CDS T3 statements
+  1. Tax year (e.g. 2025)
+  2. Folder where your CDS T3 statements are saved
+  3. Path to your ACB spreadsheet
+  4. Fund tickers you hold (e.g. VBAL ZCN CPD VRE)
+  5. Which brokerage account held each fund
+
+If you don't have an ACB spreadsheet yet, the wizard will
+copy the template (acb_worksheet_template.xlsx) for you.
+Open it and read the README sheet before entering data.
+
+STEP 3 — Download your CDS T3 statements
 -----------------------------------------
 Download from: https://ctbsext.posttrade.cds.ca/ctbsExt/
 
   2025 and later : save as  VBAL_T3_2025.pdf  in <base_dir>\2025\
   2024 and earlier: save as  VBAL_T3_2024.xls  in <base_dir>\2024\
 
-STEP 6 — Run the tool
------------------------
-Double-click t3_compute.exe and follow the interactive menu.
+STEP 4 — Enter your Buy/Sell transactions
+------------------------------------------
+Open your ACB spreadsheet and make sure all Buy/Sell
+transactions for the tax year are entered before running
+the pipeline.
+
+STEP 5 — Run the pipeline
+--------------------------
+From the main menu, run each step in order:
+
+  Step 1 — Parse T3 source files
+  Step 2 — Update ACB spreadsheet
+  Step 3 — Build assets
+  Step 4 — Compute T3 totals
+
+Or choose "Run all steps" to run them in sequence.
+
+Your T3 results will be saved to:
+  <base_dir>\<year>\T3_results_<year>.txt
 
 ============================================================
   Need help?
@@ -59,8 +63,10 @@ Report an issue:
 SmartScreen warning ("Windows protected your PC"):
   Click "More info" then "Run anyway". This appears because
   the exe is not signed with a paid EV code signing certificate
-  (~$500 USD/year). The tool is open source — you can inspect
-  every line of code on GitLab before running it.
+  (~$500 USD/year). To avoid this entirely, install from the
+  Microsoft Store instead (Canadian Store only — search T3 Compute).
+  The tool is open source — you can inspect every line of code
+  on GitLab before running it.
 
 ============================================================
   Disclaimer

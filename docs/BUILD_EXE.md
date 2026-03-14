@@ -20,7 +20,11 @@ certificate authorities like DigiCert or Sectigo after verifying the
 publisher's identity. Without one, SmartScreen flags any new executable
 until it accumulates enough download history to build a reputation.
 
-To bypass the warning:
+To avoid this warning entirely, install from the **Microsoft Store** instead:
+the Store version is signed by Microsoft and installs without any warnings.
+Available in the Canadian Microsoft Store — search for **T3 Compute**.
+
+If you prefer the direct `.exe` download, bypass the warning like this:
 1. Click **"More info"**
 2. Click **"Run anyway"**
 
@@ -72,7 +76,7 @@ executable. Nothing is sent anywhere — the tool reads files from your local
 disk and writes results to your local disk. There is no network access,
 no telemetry, and no data collection of any kind.
 
-You can verify this by inspecting the source code on GitHub before building.
+You can verify this by inspecting the source code on GitLab before building.
 
 ---
 
