@@ -25,6 +25,28 @@ That's it. See [INSTALL.md](INSTALL.md) if you need more detail.
 
 ---
 
+## How It Works
+
+```
+Your CDS T3 PDF or XLS file
+           │
+           ▼
+   Step 1 — Parse ──────────────► distributions/<FUND>.json
+                                   distributions/<FUND>_ACB_<year>.xlsx
+           │
+           ▼
+   Step 2 — Update ACB ─────────► acb_worksheet.xlsx
+             (ROC rows inserted)
+           │
+           ▼
+   Step 3 — Build Assets ───────► assets/<Account>_<year>.json
+           │
+           ▼
+   Step 4 — Compute T3 ─────────► T3_results_<year>.txt
+```
+
+---
+
 ## Download
 
 **[🪟 Microsoft Store](https://apps.microsoft.com/search?query=T3+Compute&hl=en-US&gl=CA)** — recommended, no SmartScreen warning, Canadian Store only
@@ -126,6 +148,8 @@ python run_t3.py --help                       Show all options
 - [docs/PIPELINE.md](docs/PIPELINE.md) — detailed pipeline step documentation
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common errors and fixes
 - [docs/BUILD_EXE.md](docs/BUILD_EXE.md) — how to build the `.exe` yourself
+
+---
 
 ## Contributing
 

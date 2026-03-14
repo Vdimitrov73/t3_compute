@@ -25,6 +25,15 @@ Run this once when CDS releases the T3 PDFs (usually February).
 
 ## Step 2 — Update ACB Spreadsheet
 
+> ⚠️ **This step modifies your ACB spreadsheet directly.**
+> Always run with `--dry-run` first to preview what will be
+> inserted before committing any changes:
+> ```
+> python run_t3.py --step 2 --dry-run
+> ```
+> A timestamped backup is also created automatically before
+> any changes are made.
+
 **Input:**
 - Distribution JSONs from Step 1
 - Your ACB spreadsheet

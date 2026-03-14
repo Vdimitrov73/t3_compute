@@ -82,6 +82,15 @@ After setup, the wizard writes three config files:
 These files are excluded from git via `.gitignore` and will never be
 accidentally committed. You can edit them manually at any time.
 
+> ⚠️ **Before running Step 2 for the first time**, use `--dry-run`
+> to preview what ROC rows will be inserted into your ACB spreadsheet
+> without making any changes:
+> ```
+> python run_t3.py --step 2 --dry-run
+> ```
+> Step 2 also creates a timestamped backup automatically, but it's
+> good practice to preview first.
+
 ---
 
 ## ACB Spreadsheet Setup
