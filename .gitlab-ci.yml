@@ -24,12 +24,7 @@ build-exe:
     - 'New-Item -ItemType Directory -Path release_staging'
     - 'Copy-Item dist\t3_compute.exe release_staging\'
     - 'Copy-Item README.FIRST.txt release_staging\'
-    - 'Copy-Item config.template.json release_staging\'
-    - 'Copy-Item account_periods.template.json release_staging\'
-    - 'Copy-Item funds.template.json release_staging\'
     - 'Copy-Item acb_worksheet_template.xlsx release_staging\'
-    - 'Copy-Item README.md release_staging\'
-    - 'Copy-Item BUILD_EXE.md release_staging\'
     - 'Compress-Archive -Path release_staging\* -DestinationPath $zipName'
   artifacts:
     paths:
