@@ -55,6 +55,7 @@ import os
 import json
 import shutil
 from datetime import date
+from pathlib import Path
 
 # ── Config directory ─────────────────────────────────────────────────────────
 
@@ -62,23 +63,50 @@ def get_config_dir(script_dir):
     """
     Return the directory where config files should be read/written.
 
-    - PyInstaller bundle (.exe / MSIX): uses %LOCALAPPDATA%\\T3Compute\\
-      The PyInstaller extraction folder (script_dir) is a temp path that is
-      deleted on exit, so config files must live elsewhere.
-    - Regular Python script: uses script_dir, preserving existing behaviour
-      for setup.bat and command-line users.
+    Always resolves the real physical %LOCALAPPDATA%\T3Compute directory
+    on Windows, bypassing MSIX filesystem redirection.
     """
-    if getattr(sys, "frozen", False):
-        # Running as PyInstaller bundle
-        local_app_data = os.environ.get(
-            "LOCALAPPDATA",
-            os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        )
-        config_dir = os.path.join(local_app_data, "T3Compute")
-        os.makedirs(config_dir, exist_ok=True)
-        return config_dir
-    return script_dir
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
 
+        class GUID(ctypes.Structure):
+            _fields_ = [
+                ("Data1", wintypes.DWORD),
+                ("Data2", wintypes.WORD),
+                ("Data3", wintypes.WORD),
+                ("Data4", wintypes.BYTE * 8),
+            ]
+        
+        # FOLDERID_LocalAppData
+        fid = GUID(
+            0xF1B32785, 0x6FBA, 0x4FCF,
+            (0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91)
+        )
+
+        KF_FLAG_NO_PACKAGE_REDIRECTION = 0x00001000
+        
+        path_ptr = wintypes.LPWSTR()
+
+        ret = ctypes.windll.shell32.SHGetKnownFolderPath(
+            ctypes.byref(fid),
+            KF_FLAG_NO_PACKAGE_REDIRECTION,
+            None,
+            ctypes.byref(path_ptr),
+        )
+
+        if ret == 0 and path_ptr.value:
+            base_path = Path(path_ptr.value)
+            ctypes.windll.ole32.CoTaskMemFree(path_ptr)
+        else:
+            base_path = Path(os.environ.get("LOCALAPPDATA",
+                 os.path.join(os.path.expanduser("~"), "AppData", "Local")))
+
+        config_dir = base_path / "T3Compute"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        return str(config_dir)
+
+    return script_dir
 
 # ── First-run setup wizard ────────────────────────────────────────────────────
 
