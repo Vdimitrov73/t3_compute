@@ -41,8 +41,8 @@ Config files:
     Python script (python run_t3.py / setup.bat):
         Same directory as this script — no change from previous behaviour.
     Bundled .exe (PyInstaller / Microsoft Store):
-        %%LOCALAPPDATA%%\\T3Compute\\
-        e.g. C:\\Users\\<you>\\AppData\\Local\\T3Compute\\
+        Documents\\T3Compute\\
+        e.g. C:\\Users\\<you>\\Documents\\T3Compute\\
 
     config.json           — tax year, paths, fund list, tax rates
     account_periods.json  — brokerage account periods per fund per year
@@ -62,11 +62,10 @@ from pathlib import Path
 def get_config_dir(script_dir):
     """
     Return the directory where config files should be read/written.
-
-    Always resolves the real physical %LOCALAPPDATA%\T3Compute directory
-    on Windows, bypassing MSIX filesystem redirection.
+    MSIX/Store (frozen exe): Documents\\T3Compute\\
+    Plain Python script    : same directory as the script (script_dir)
     """
-    if sys.platform == "win32":
+    if getattr(sys, "frozen", False):
         import ctypes
         from ctypes import wintypes
 
@@ -77,30 +76,20 @@ def get_config_dir(script_dir):
                 ("Data3", wintypes.WORD),
                 ("Data4", wintypes.BYTE * 8),
             ]
-        
-        # FOLDERID_LocalAppData
+
         fid = GUID(
-            0xF1B32785, 0x6FBA, 0x4FCF,
-            (0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91)
+            0xFDD39AD0, 0x238F, 0x46AF,
+            (0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7)
         )
-
-        KF_FLAG_NO_PACKAGE_REDIRECTION = 0x00001000
-        
         path_ptr = wintypes.LPWSTR()
-
         ret = ctypes.windll.shell32.SHGetKnownFolderPath(
-            ctypes.byref(fid),
-            KF_FLAG_NO_PACKAGE_REDIRECTION,
-            None,
-            ctypes.byref(path_ptr),
+            ctypes.byref(fid), 0, None, ctypes.byref(path_ptr)
         )
-
         if ret == 0 and path_ptr.value:
             base_path = Path(path_ptr.value)
             ctypes.windll.ole32.CoTaskMemFree(path_ptr)
         else:
-            base_path = Path(os.environ.get("LOCALAPPDATA",
-                 os.path.join(os.path.expanduser("~"), "AppData", "Local")))
+            base_path = Path.home() / "Documents"
 
         config_dir = base_path / "T3Compute"
         config_dir.mkdir(parents=True, exist_ok=True)
