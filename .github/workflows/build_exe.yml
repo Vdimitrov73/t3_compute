@@ -26,6 +26,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pdfplumber openpyxl xlrd pyinstaller
+          
+      # ── 3b. Patch version.txt ─────────────────────────────────────────────
+      - name: Patch version.txt
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          $parts = $tag.Split(".")
+          $v = "$($parts[0]), $($parts[1]), $($parts[2]), 0"
+          (Get-Content version.txt) -replace "\(\d+, \d+, \d+, \d+\)", "($v)" | Set-Content version.txt
 
       # ── 4. Build the executable ───────────────────────────────────────────
       # --onefile        : single self-contained .exe
@@ -45,6 +54,7 @@ jobs:
             --hidden-import pdfminer.layout `
             --hidden-import openpyxl `
             --hidden-import xlrd `
+            --version-file version.txt `
             run_t3.py
 
       # ── 5. Bundle exe + templates + quick start into a zip ───────────────
