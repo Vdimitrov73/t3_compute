@@ -3,6 +3,18 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.4.8 — 2026-03-22
+- Fix: year and fund overrides in interactive mode no longer carry over
+  into subsequent menu iterations (pressing Enter now correctly resets
+  to config default)
+- Fix: Box 50/51 and Box 32/39 now computed from rounded intermediate
+  values at each step, eliminating a $0.01 cascade error on derived boxes
+- Fix: Step 4 (Compute T3) now supports --funds override, matching
+  steps 1–3 behaviour
+- Fix: interactive menu option labels aligned for consistency
+
+## v1.4.7 — 2026-03-18
+ - Fix: use FOLDERID_Documents to bypass MSIX filesystem virtualization
 
 ## v1.4.6 — 2026-03-13
 - Fix: GitLab CI YAML syntax error in release job

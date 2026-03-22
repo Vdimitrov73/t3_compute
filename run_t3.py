@@ -495,8 +495,8 @@ def build_step_argv(args, step_num):
     argv += ["--config", args.config]
     if args.year:
         argv += ["--year", args.year]
-    # --funds is supported by steps 1, 2, and 3
-    if args.funds and step_num in (1, 2, 3):
+    # --funds is supported by all steps
+    if args.funds and step_num in (1, 2, 3, 4):
         argv += ["--funds"] + args.funds
     # --dry-run is only for step 2
     if step_num == 2 and hasattr(args, "dry_run") and args.dry_run:
@@ -551,11 +551,11 @@ def show_menu():
     print("╔═══════════════════════════════════════════════════════════╗")
     print("║                    T3 Tax Pipeline                        ║")
     print("╠═══════════════════════════════════════════════════════════╣")
-    print("║  1  Parse T3 PDFs         Reads CDS PDFs → JSONs + ACB    ║")
+    print("║  1  Parse T3 PDFs           Reads CDS PDFs → JSONs + ACB  ║")
     print("║  2  Update ACB Spreadsheet  Inserts ROC rows from Step 1  ║")
-    print("║  3  Build Assets          Reads ACB spreadsheet → JSONs   ║")
-    print("║  4  Compute T3            Reads JSONs → T3 slip totals    ║")
-    print("║  A  Run all steps in sequence                             ║")
+    print("║  3  Build Assets            Reads ACB spreadsheet → JSONs ║")
+    print("║  4  Compute T3              Reads JSONs → T3 slip totals  ║")
+    print("║  A  Run all steps           Execute all steps in sequence ║")
     print("║  Q  Quit                                                  ║")
     print("╚═══════════════════════════════════════════════════════════╝")
     print()
@@ -581,6 +581,10 @@ def interactive_mode(args):
             print("  Invalid choice, please try again.")
             continue
 
+        # Reset overrides each iteration so pressing Enter truly means "use config default"
+        args.year  = None
+        args.funds = None
+
         # Optional year override
         year_input = input(
             "  Tax year override? (press Enter to use config default): "
@@ -588,10 +592,10 @@ def interactive_mode(args):
         if year_input:
             args.year = year_input
 
-        # Optional fund override for steps 1, 2, and 3
-        if any(s in steps_to_run for s in (1, 2, 3)):
+        # Optional fund override for all steps
+        if any(s in steps_to_run for s in (1, 2, 3, 4)):
             funds_input = input(
-                "  Fund override for steps 1/2/3? (e.g. VBAL ZCN, or Enter for all): "
+                "  Fund override? (e.g. VBAL ZCN, or Enter for all): "
             ).strip()
             if funds_input:
                 args.funds = funds_input.split()

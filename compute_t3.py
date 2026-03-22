@@ -5,7 +5,7 @@ Reads your distribution JSONs and account shares JSONs, then computes
 the T3 slip totals for each brokerage account.
 
 Usage:
-    python compute_t3.py [--config config.json] [--year 2025]
+    python compute_t3.py [--config config.json] [--year 2025] [--funds VBAL ZCN]
 
 Canadian T3 boxes computed:
     Box 21  — Capital Gains
@@ -25,8 +25,9 @@ Phantom (non-cash) distributions:
     All income components are still fully reported for tax purposes.
 
 Precision:
-    All calculations use full float precision internally.
-    Output is rounded to 2 decimal places in the summary.
+    All income box totals (21, 23, 25, 26, 34, 42, 49) are accumulated at full
+    float precision and rounded to 2 decimal places in the summary.
+    Derived boxes (50, 51, 32, 39) are computed from the rounded Box 49/23 values.
 """
 
 import argparse
@@ -59,6 +60,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Compute T3 slip totals per brokerage account.")
     parser.add_argument("--config", default="config.json", help="Path to config.json")
     parser.add_argument("--year",   help="Override tax year in config")
+    parser.add_argument("--funds",  nargs="+", help="Override fund list (e.g. --funds VBAL ZCN)")
     return parser.parse_args()
 
 def check_rates(tax_year, cfg_rates):
@@ -225,19 +227,21 @@ def compute_t3(funds, accounts, tax_rates):
                     )
                     acc_totals[field] += total_val
 
-        # Derived boxes — eligible dividends
+        # Derived boxes — eligible dividends (computed from the rounded values)
         elig_div = acc_totals.get("actualAmountOfEligibleDividends", 0.0)
         if elig_div:
-            taxable = elig_div * elig_grossup
+            elig_div_rounded = round(elig_div, 2)
+            taxable = round(elig_div_rounded * elig_grossup, 2)
             acc_totals["taxableAmountOfEligibleDividends"]      = taxable
-            acc_totals["dividendTaxCreditForEligibleDividends"] = taxable * elig_credit
+            acc_totals["dividendTaxCreditForEligibleDividends"] = round(taxable * elig_credit, 2)
 
-        # Derived boxes — non-eligible dividends
+        # Derived boxes — non-eligible dividends (computed from the rounded values)
         ne_div = acc_totals.get("actualAmountOfNonEligibleDividends", 0.0)
         if ne_div:
-            taxable_ne = ne_div * ne_grossup
+            ne_div_rounded = round(ne_div, 2)
+            taxable_ne = round(ne_div_rounded * ne_grossup, 2)
             acc_totals["taxableAmountOfNonEligibleDividends"]      = taxable_ne
-            acc_totals["dividendTaxCreditForNonEligibleDividends"] = taxable_ne * ne_credit
+            acc_totals["dividendTaxCreditForNonEligibleDividends"] = round(taxable_ne * ne_credit, 2)
 
         results[account] = dict(acc_totals)
         details[account] = acc_details
@@ -320,6 +324,11 @@ def main():
 
     print(f"Loading distributions from: {dist_dir}")
     funds = load_distributions(dist_dir)
+    if args.funds:
+        unknown = [f for f in args.funds if f not in funds]
+        if unknown:
+            print(f"WARNING: Fund(s) not found in distributions folder: {', '.join(unknown)}")
+        funds = {k: v for k, v in funds.items() if k in args.funds}
     print(f"  Loaded {len(funds)} fund(s): {', '.join(sorted(funds.keys()))}")
     print(f"  Total distributions: {sum(len(v) for v in funds.values())}")
 
