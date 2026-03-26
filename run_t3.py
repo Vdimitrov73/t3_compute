@@ -291,6 +291,7 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
         "funds": funds,
         "tax_rates": _KNOWN_TAX_RATES,
         "col_indices": {"date": 0, "share_balance": 6},
+        "broker_rounding": True,
     }
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
