@@ -91,3 +91,11 @@ be shown — this usually means a transaction is missing or entered incorrectly.
 broken down by account, with full per-distribution detail
 
 Boxes computed: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
+
+**Rounding mode:** By default (`broker_rounding: true`), each distribution
+is rounded per-component using the Largest Remainder Method, which closely
+matches 2025+ PDF-sourced broker T3 slips. If you are processing **2024 or
+earlier** data (XLS format), set `"broker_rounding": false` in `config.json`
+to use accumulate mode, which may give better results with the older XLS
+per-unit values.
+

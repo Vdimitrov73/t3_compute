@@ -3,6 +3,14 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.4.9 — 2026-03-26
+- Change: `broker_rounding` default set to `true` (largest_remainder method)
+  for all new installations and for users without a `broker_rounding` key in
+  their config. This matches the observed behaviour of Canadian brokers for
+  2025 PDF-based CDS data.
+- Note: users processing 2024 or earlier (XLS-based CDS data) should set
+  `"broker_rounding": false` in config.json for closer accumulate-mode results.
+
 ## v1.4.8 — 2026-03-22
 - Fix: year and fund overrides in interactive mode no longer carry over
   into subsequent menu iterations (pressing Enter now correctly resets

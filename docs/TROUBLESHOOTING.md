@@ -38,3 +38,8 @@ The script detected an unrecognized tax year or a mismatch with known CRA
 rates. Verify current rates at
 [canada.ca](https://www.canada.ca/en/revenue-agency.html) and update
 `tax_rates` in `config.json`.
+
+**Results differ from my broker T3 slip by $0.01**
+Check `broker_rounding` in `config.json`. For 2025+ PDF data, `true`
+(default) gives the closest match to broker slips. For 2024 and earlier
+XLS data, `false` (accumulate mode) may produce better results.

@@ -25,9 +25,26 @@ Phantom (non-cash) distributions:
     All income components are still fully reported for tax purposes.
 
 Precision:
-    All income box totals (21, 23, 25, 26, 34, 42, 49) are accumulated at full
-    float precision and rounded to 2 decimal places in the summary.
-    Derived boxes (50, 51, 32, 39) are computed from the rounded Box 49/23 values.
+    Two rounding modes are available via "broker_rounding" in config.json:
+
+    "largest_remainder" (default):
+        Each distribution is rounded per-component, then a cash-preservation
+        constraint forces the cash components to sum exactly to the rounded
+        cash total for that distribution. Penny adjustments go to the field
+        with the largest fractional remainder; ties broken by ROUNDING_PRIORITY.
+        Recommended for 2025 and later (PDF-based CDS files).
+        Note: may produce worse results for pre-2025 XLS data where per-unit
+        values are truncated to 5 decimal places and do not satisfy the CDS
+        formula exactly.
+        
+    "accumulate":
+        Income box totals are accumulated at full float precision and rounded
+        to 2 decimal places in the summary. Mathematically clean but may differ
+        from broker T3 slips by $0.01 on some boxes.
+        Recommended for 2024 and earlier (XLS-based CDS files).
+
+    Derived boxes (50, 51, 32, 39) are computed from the rounded Box 49/23
+    values in both modes.
 """
 
 import argparse
@@ -164,11 +181,26 @@ def load_assets(assets_dir):
 
 # ── Core computation ──────────────────────────────────────────────────────────
 
-def compute_t3(funds, accounts, tax_rates):
+# Tie-breaking priority for largest_remainder mode.
+# Lower number = absorbs penny adjustment first (ROC before income boxes).
+ROUNDING_PRIORITY = {
+    "returnOfCapital":                    0,
+    "otherIncome":                        1,
+    "foreignNonBusinessIncome":           2,
+    "capitalGains":                       3,
+    "actualAmountOfEligibleDividends":    4,
+    "actualAmountOfNonEligibleDividends": 5,
+}
+
+def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
     """
     Returns:
         results : dict  account -> {field -> total_dollars}
         details : dict  account -> list of strings (verbose log)
+
+    broker_rounding: if True, uses the Largest Remainder Method to round each
+        distribution per-component and preserve the cash total exactly.
+        Recommended for 2025+ PDF-sourced data. See config.json "broker_rounding".
     """
     elig_grossup   = tax_rates["eligible_div_grossup"]
     elig_credit    = tax_rates["eligible_div_tax_credit"]
@@ -207,15 +239,52 @@ def compute_t3(funds, accounts, tax_rates):
                 acc_details.append(f"         You should have received {fmt2(cash_rcvd)} on or about {pay_date}")
                 acc_details.append(f"         Breakdown:")
 
-                for field, (box, label) in FIELD_TO_BOX.items():
-                    val = dist.get(field, 0.0)
-                    if val == 0.0:
-                        continue
-                    dollar = shares * val
-                    fund_totals[field] += dollar
-                    acc_details.append(
-                        f"            Box {box:>2} {label:<45}: {shares:>12,.4f} × {fmt4(val)} = {fmt2(dollar)}"
+                if broker_rounding:
+                    # ── Largest Remainder per-distribution rounding ───────────────
+                    # Round each component, then reconcile cash components to the
+                    # rounded cash total. Penny goes to largest fractional remainder;
+                    # ties broken by ROUNDING_PRIORITY (ROC absorbs before income).
+                    # Box 34 (foreignTax) is rounded independently — not part of cash.
+                    recon_target = round(shares * (total - non_cash), 2)
+                    exact   = {f: shares * v for f in FIELD_TO_BOX
+                               if (v := dist.get(f, 0.0)) != 0.0}
+                    rounded = {f: round(v, 2) for f, v in exact.items()}
+                    recon_fields = [f for f in rounded
+                                    if f != "foreignNonBusinessIncomeTaxPaid"]
+                    diff_pennies = round(
+                        (recon_target - sum(rounded[f] for f in recon_fields)) * 100
                     )
+                    if diff_pennies != 0 and abs(diff_pennies) <= 2:
+                        def frac(f):
+                            return round(exact[f] - int(exact[f] * 100) / 100.0, 6)
+                        sign = 1 if diff_pennies > 0 else -1
+                        if diff_pennies > 0:
+                            ordered = sorted(recon_fields,
+                                key=lambda f: (frac(f), -ROUNDING_PRIORITY.get(f, 99), exact[f]),
+                                reverse=True)
+                        else:
+                            ordered = sorted(recon_fields,
+                                key=lambda f: (frac(f), ROUNDING_PRIORITY.get(f, 99), exact[f]))
+                        for i in range(abs(int(diff_pennies))):
+                            f = ordered[i % len(ordered)]
+                            rounded[f] = round(rounded[f] + sign * 0.01, 2)
+                    for field, dollar in rounded.items():
+                        fund_totals[field] += dollar
+                        box, label = FIELD_TO_BOX[field]
+                        acc_details.append(
+                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} × {fmt4(dist.get(field,0.0))} = {fmt2(dollar)}"
+                        )
+                else:
+                    # ── Default: accumulate full precision ────────────────────────
+                    for field, (box, label) in FIELD_TO_BOX.items():
+                        val = dist.get(field, 0.0)
+                        if val == 0.0:
+                            continue
+                        dollar = shares * val
+                        fund_totals[field] += dollar
+                        acc_details.append(
+                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} × {fmt4(val)} = {fmt2(dollar)}"
+                        )
 
             # Accumulate fund totals into account totals
             if any(v != 0 for v in fund_totals.values()):
@@ -227,7 +296,9 @@ def compute_t3(funds, accounts, tax_rates):
                     )
                     acc_totals[field] += total_val
 
-        # Derived boxes — eligible dividends (computed from the rounded values)
+        # Derived boxes — eligible dividends
+        # Each step is rounded before feeding into the next, matching broker behaviour:
+        # Box49 (rounded) → Box50 (rounded) → Box51
         elig_div = acc_totals.get("actualAmountOfEligibleDividends", 0.0)
         if elig_div:
             elig_div_rounded = round(elig_div, 2)
@@ -235,7 +306,8 @@ def compute_t3(funds, accounts, tax_rates):
             acc_totals["taxableAmountOfEligibleDividends"]      = taxable
             acc_totals["dividendTaxCreditForEligibleDividends"] = round(taxable * elig_credit, 2)
 
-        # Derived boxes — non-eligible dividends (computed from the rounded values)
+        # Derived boxes — non-eligible dividends (same rounding chain)
+        # Box23 (rounded) → Box32 (rounded) → Box39
         ne_div = acc_totals.get("actualAmountOfNonEligibleDividends", 0.0)
         if ne_div:
             ne_div_rounded = round(ne_div, 2)
@@ -336,8 +408,13 @@ def main():
     accounts = load_assets(assets_dir)
     print(f"  Loaded {len(accounts)} account(s): {', '.join(sorted(accounts.keys()))}")
 
+    broker_rounding = cfg.get("broker_rounding", True)
+    if broker_rounding:
+        print("Rounding mode: largest_remainder (broker_rounding=true in config)")
+    else:
+        print("Rounding mode: accumulate (broker_rounding=false in config)")
     print("\nBeginning computation...")
-    results, details = compute_t3(funds, accounts, tax_rates)
+    results, details = compute_t3(funds, accounts, tax_rates, broker_rounding=broker_rounding)
 
     print_results(results, details, output_txt)
 
