@@ -25,6 +25,12 @@ import os
 import re
 import sys
 
+try:
+    from t3_colors import c, BOLD, DIM, CYAN, GREEN, YELLOW, RED
+except ImportError:
+    def c(code, text): return text
+    BOLD = DIM = CYAN = GREEN = YELLOW = RED = ""
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 def load_config(path="config.json"):
@@ -54,7 +60,7 @@ def load_funds_meta(config_path):
             return json.load(f)
     return {}
 
-# ── T3 box → JSON field mapping ───────────────────────────────────────────────
+# ── T3 box -> JSON field mapping ───────────────────────────────────────────────
 
 BOX_TO_FIELD = {
     "21": "capitalGains",
@@ -150,9 +156,9 @@ def extract_distributions(pdf_path, fund_name, calc_method_override=None):
         out = {}
         for w in rows.get(top, []):
             if w["x0"] >= LEFT_BOUNDARY:
-                c = col_of(w["x0"])
-                if c is not None and (is_date(w["text"]) or is_number(w["text"])):
-                    out[c] = w["text"]
+                col = col_of(w["x0"])
+                if col is not None and (is_date(w["text"]) or is_number(w["text"])):
+                    out[col] = w["text"]
         return out
 
     def find_values_near(label_top, window=5):
@@ -163,11 +169,11 @@ def extract_distributions(pdf_path, fund_name, calc_method_override=None):
                     return v
         return {}
 
-    raw = {}  # field → {col_index: value_str}
+    raw = {}  # field -> {col_index: value_str}
 
     # Track cash and non-cash rows for phantom detection
-    cash_vals     = {}   # col → float
-    non_cash_vals = {}   # col → float
+    cash_vals     = {}   # col -> float
+    non_cash_vals = {}   # col -> float
 
     for top in sorted_tops:
         lw = [w for w in rows[top] if w["x0"] < LEFT_BOUNDARY]
@@ -202,9 +208,9 @@ def extract_distributions(pdf_path, fund_name, calc_method_override=None):
                 if abs(t2 - top) <= 5:
                     for w in rows.get(t2, []):
                         if w["x0"] >= LEFT_BOUNDARY and is_number(w["text"]):
-                            c = col_of(w["x0"])
-                            if c is not None:
-                                cash_vals[c] = float(w["text"])
+                            col = col_of(w["x0"])
+                            if col is not None:
+                                cash_vals[col] = float(w["text"])
 
         # Total Non-Cash Distribution row
         if "Total Non Cash Distribution" in label:
@@ -212,9 +218,9 @@ def extract_distributions(pdf_path, fund_name, calc_method_override=None):
                 if abs(t2 - top) <= 5:
                     for w in rows.get(t2, []):
                         if w["x0"] >= LEFT_BOUNDARY and is_number(w["text"]):
-                            c = col_of(w["x0"])
-                            if c is not None:
-                                non_cash_vals[c] = float(w["text"])
+                            col = col_of(w["x0"])
+                            if col is not None:
+                                non_cash_vals[col] = float(w["text"])
 
         # Record dates
         if re.search(r"R\s+e\s+c\s+o\s+r\s+d", label):
@@ -240,7 +246,7 @@ def extract_distributions(pdf_path, fund_name, calc_method_override=None):
         if "recordDate" not in dist or "total" not in dist:
             continue
 
-        # PERCENT mode: convert percentages → dollar amounts
+        # PERCENT mode: convert percentages -> dollar amounts
         if calc_method == "PERCENT":
             total = dist["total"]
             for field in list(dist.keys()):
@@ -442,7 +448,7 @@ def extract_distributions_from_xls(xls_path, fund_name, calc_method_override=Non
 
     SHEET_NAME   = "T3, R16"
     # xlrd uses 0-based row/col indices
-    # openpyxl-style (row, col) 1-based → xlrd (row-1, col-1)
+    # openpyxl-style (row, col) 1-based -> xlrd (row-1, col-1)
     ROW_TOTAL    = _XLS_ROW_TOTAL   - 1   # 18
     ROW_RECORD   = _XLS_ROW_RECORD  - 1   # 19
     ROW_PAYMENT  = _XLS_ROW_PAYMENT - 1   # 20
@@ -464,12 +470,12 @@ def extract_distributions_from_xls(xls_path, fund_name, calc_method_override=Non
     def cell(row0, col0):
         """Return cell value using 0-based indices. Returns None for empty cells."""
         try:
-            c = ws.cell(row0, col0)
-            if c.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+            cl = ws.cell(row0, col0)
+            if cl.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
                 return None
-            if c.ctype == xlrd.XL_CELL_TEXT and c.value.strip() == "":
+            if cl.ctype == xlrd.XL_CELL_TEXT and cl.value.strip() == "":
                 return None
-            return c.value
+            return cl.value
         except IndexError:
             return None
 
@@ -601,10 +607,10 @@ def main():
     # CDS switched from XLS to PDF format starting with tax year 2025
     use_pdf = int(tax_year) >= 2025
 
-    print(f"Tax year : {tax_year}")
-    print(f"Format   : {'PDF (2025+)' if use_pdf else 'XLS (2024 and earlier)'}")
-    print(f"Src dir  : {pdf_dir}")
-    print(f"Dist dir : {dist_dir}")
+    print(c(DIM, f"Tax year : {tax_year}"))
+    print(c(DIM, f"Format   : {'PDF (2025+)' if use_pdf else 'XLS (2024 and earlier)'}"))
+    print(c(DIM, f"Src dir  : {pdf_dir}"))
+    print(c(DIM, f"Dist dir : {dist_dir}"))
     print()
 
     skipped = []
@@ -620,13 +626,13 @@ def main():
             src_type = "XLS"
 
         if not os.path.exists(src_path):
-            print(f"  WARNING: {src_type} not found — skipping {fund}")
-            print(f"           Expected : {src_path}")
-            print(f"           Download from: https://ctbsext.posttrade.cds.ca/ctbsExt/")
+            print(c(YELLOW, f"  WARNING: {src_type} not found — skipping {fund}"))
+            print(c(DIM,    f"           Expected : {src_path}"))
+            print(c(DIM,    f"           Download from: https://ctbsext.posttrade.cds.ca/ctbsExt/"))
             skipped.append(fund)
             continue
 
-        print(f"Processing {fund} ({src_type})..." + (f" [override: {override}]" if override else ""))
+        print(c(CYAN, f"Processing {fund} ({src_type})...") + (c(DIM, f" [override: {override}]") if override else ""))
 
         try:
             if use_pdf:
@@ -634,20 +640,20 @@ def main():
             else:
                 result = extract_distributions_from_xls(src_path, fund, calc_method_override=override)
         except Exception as e:
-            print(f"  WARNING: Failed to parse {src_type} for {fund}: {e}")
+            print(c(YELLOW, f"  WARNING: Failed to parse {src_type} for {fund}: {e}"))
             skipped.append(fund)
             continue
 
         if not result["distributions"]:
-            print(f"  WARNING: No distributions found for {fund} — file structure may differ")
-            print(f"           Check the file is the CDS T3 statement, not the broker version.")
-            print(f"           Try setting calc_method_override in funds.json to 'RATE' or 'PERCENT'.")
+            print(c(YELLOW,  f"  WARNING: No distributions found for {fund} — file structure may differ"))
+            print(c(DIM,     f"           Check the file is the CDS T3 statement, not the broker version."))
+            print(c(DIM,     f"           Try setting calc_method_override in funds.json to 'RATE' or 'PERCENT'."))
             skipped.append(fund)
             continue
         else:
-            print(f"  Found {len(result['distributions'])} distribution(s)")
+            print(c(GREEN, f"  Found {len(result['distributions'])} distribution(s)"))
             for d in result["distributions"]:
-                date     = d.get("recordDate", "")
+                rec_date = d.get("recordDate", "")
                 total    = d.get("total", 0)
                 non_cash = d.get("_nonCashAmount", 0)
 
@@ -666,7 +672,7 @@ def main():
 
                 breakdown = "  [" + "  ".join(parts) + "]" if parts else ""
                 phantom   = f"   nonCash={fmt(non_cash)}  ACB+={fmt(non_cash)}" if non_cash else ""
-                print(f"     {date}  total={total}{breakdown}{phantom}")
+                print(f"     {rec_date}  total={total}{breakdown}{phantom}")
             print()
 
         # Strip internal tracking fields before writing JSON
@@ -685,19 +691,16 @@ def main():
         json_path = os.path.join(dist_dir, f"{fund}.json")
         with open(json_path, "w") as f:
             f.write(to_json(clean))
-        print(f"  JSON  → {json_path}")
+        print(c(GREEN, f"  JSON  -> {json_path}"))
 
         xlsx_path = os.path.join(dist_dir, f"{fund}_ACB_{tax_year}.xlsx")
         write_acb_excel(result, xlsx_path)
-        print(f"  Excel → {xlsx_path}\n")
-
-
+        print(c(GREEN, f"  Excel -> {xlsx_path}\n"))
 
     if skipped:
-        print(f"\n  WARNING: {len(skipped)} fund(s) skipped: {', '.join(skipped)}")
-        print(f"  Re-run Step 1 after downloading or fixing the missing files.")
+        print(c(YELLOW, f"\n  WARNING: {len(skipped)} fund(s) skipped: {', '.join(skipped)}"))
+        print(c(YELLOW,  f"  Re-run Step 1 after downloading or fixing the missing files."))
         sys.exit(2)   # non-zero so run_t3.py can detect warnings
-
 
 if __name__ == "__main__":
     main()

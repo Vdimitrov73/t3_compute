@@ -3,6 +3,15 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.5.0 — 2026-03-28
+- Added: ANSI colour output for all interactive menus
+- Fix: PERCENTAGE-method ETFs (ZCN, etc.) dominant component rounded to 5dp
+- Fix: genuine_constraint guard prevents LRM from firing on PERCENTAGE funds
+  whose components already sum to the cash total, eliminating penny adjustments
+- Fix: SAFE_LRM_THRESHOLD (0.05) — LRM skipped when no component is near the
+  rounding midpoint, preventing false corrections on clean distributions
+- Per-unit precision in breakdown lines: 4dp -> 5dp
+
 ## v1.4.9 — 2026-03-26
 - Change: `broker_rounding` default set to `true` (largest_remainder method)
   for all new installations and for users without a `broker_rounding` key in

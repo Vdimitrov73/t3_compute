@@ -34,6 +34,12 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+try:
+    from t3_colors import c, BOLD, DIM, CYAN, GREEN, YELLOW, RED
+except ImportError:
+    def c(code, text): return text
+    BOLD = DIM = CYAN = GREEN = YELLOW = RED = ""
+
 # ── Formatting constants (must match acb_worksheet_template) ─────────────────
 DATE_FMT    = "YYYY-MMM-DD"
 PRICE_FMT   = '$#,##0.#######;-$#,##0.#######'
@@ -308,7 +314,7 @@ def insert_roc_rows(ws, roc_rows, existing_roc, year, dry_run, fund):
 
         # Exact duplicate — already in sheet with same date AND same amount
         if key in existing_roc:
-            print(f"  [{fund}] SKIP (duplicate): {date_str}  ROC {amount:+.7f}")
+            print(c(DIM,    f"  [{fund}] SKIP (duplicate): {date_str}  ROC {amount:+.7f}"))
             skipped_dup += 1
             continue
 
@@ -320,14 +326,14 @@ def insert_roc_rows(ws, roc_rows, existing_roc, year, dry_run, fund):
             if d == target_date and (a < 0) == is_negative
         ]
         if same_sign_same_date:
-            print(f"  [{fund}] WARNING: ROC row for {date_str} already exists "
+            print(c(YELLOW, f"  [{fund}] WARNING: ROC row for {date_str} already exists "
                   f"with same sign but different amount(s) {same_sign_same_date} vs {amount}. "
-                  f"Skipping — please review manually.")
+                  f"Skipping — please review manually."))
             warned += 1
             continue
 
         if dry_run:
-            print(f"  [{fund}] DRY-RUN — would insert: {date_str}  ROC {amount:+.7f}")
+            print(c(CYAN,   f"  [{fund}] DRY-RUN — would insert: {date_str}  ROC {amount:+.7f}"))
             inserted += 1
             continue
 
@@ -363,7 +369,7 @@ def insert_roc_rows(ws, roc_rows, existing_roc, year, dry_run, fund):
         # Update existing_roc set so subsequent iterations see this new row
         existing_roc.add(key)
 
-        print(f"  [{fund}] INSERTED: {date_str}  ROC {amount:+.7f}  at row {insert_at}")
+        print(c(GREEN,  f"  [{fund}] INSERTED: {date_str}  ROC {amount:+.7f}  at row {insert_at}"))
         inserted += 1
 
     return inserted, skipped_dup, warned, errors
@@ -397,32 +403,32 @@ Examples:
     dist_dir = cfg["dist_dir"]
 
     print()
-    print(f"  Tax year   : {year}")
-    print(f"  Funds      : {', '.join(funds)}")
-    print(f"  ACB file   : {acb_path}")
-    print(f"  Dist dir   : {dist_dir}")
+    print(c(DIM,    f"  Tax year   : {year}"))
+    print(c(DIM,    f"  Funds      : {', '.join(funds)}"))
+    print(c(DIM,    f"  ACB file   : {acb_path}"))
+    print(c(DIM,    f"  Dist dir   : {dist_dir}"))
     if args.dry_run:
-        print("  Mode       : DRY-RUN (no changes will be made)")
+        print(c(YELLOW, "  Mode       : DRY-RUN (no changes will be made)"))
     print()
 
     # ── Validate paths ────────────────────────────────────────────────────────
     if not os.path.exists(acb_path):
-        print(f"ERROR: ACB spreadsheet not found: {acb_path}")
+        print(c(RED, f"  ERROR: ACB spreadsheet not found: {acb_path}"))
         sys.exit(1)
     if not os.path.isdir(dist_dir):
-        print(f"ERROR: Distributions folder not found: {dist_dir}")
-        print(f"       Run Step 1 first to generate distribution JSONs.")
+        print(c(RED, f"  ERROR: Distributions folder not found: {dist_dir}"))
+        print(c(DIM,  "         Run Step 1 first to generate distribution JSONs."))
         sys.exit(1)
 
     # ── Year boundary warning ─────────────────────────────────────────────────
     current_year = datetime.now().year
     if int(year) < current_year - 1:
-        print(f"WARNING: You are inserting ROC rows for {year} into a spreadsheet")
-        print(f"         that likely contains transactions from later years.")
-        print(f"         Duplicate checks will run. Rows outside {year} will not be touched.")
+        print(c(YELLOW, f"WARNING: You are inserting ROC rows for {year} into a spreadsheet"))
+        print(c(YELLOW, f"         that likely contains transactions from later years."))
+        print(c(YELLOW, f"         Duplicate checks will run. Rows outside {year} will not be touched."))
         confirm = input(f"  Proceed? [Y/N]: ").strip().upper()
         if confirm != "Y":
-            print("Aborted.")
+            print(c(YELLOW, "Aborted."))
             sys.exit(0)
         print()
 
@@ -430,7 +436,7 @@ Examples:
     backup_path = None
     if not args.dry_run:
         backup_path = make_backup(acb_path)
-        print(f"  Backup created: {os.path.basename(backup_path)}")
+        print(c(DIM, f"  Backup created: {os.path.basename(backup_path)}"))
         print()
 
     # ── Load workbook ─────────────────────────────────────────────────────────
@@ -443,13 +449,13 @@ Examples:
     rollback_reason = ""
 
     for fund in funds:
-        print(f"── {fund} {'(dry-run) ' if args.dry_run else ''}──────────────────────────")
+        print(c(CYAN, f"── {fund} {'(dry-run) ' if args.dry_run else ''}──────────────────────────"))
 
         # Load distribution JSON
         json_path = os.path.join(dist_dir, f"{fund}.json")
         if not os.path.exists(json_path):
-            print(f"  WARNING: {fund}.json not found in {dist_dir} — skipping.")
-            print(f"           Run Step 1 first.")
+            print(c(YELLOW, f"  WARNING: {fund}.json not found in {dist_dir} — skipping."))
+            print(c(DIM,    f"           Run Step 1 first."))
             continue
 
         with open(json_path) as f:
@@ -458,23 +464,22 @@ Examples:
         # Extract ROC rows for this year
         roc_rows = build_roc_rows(dist_data, year)
         if not roc_rows:
-            print(f"  No ROC rows found for {year} in {fund}.json")
+            print(c(DIM,    f"  No ROC rows found for {year} in {fund}.json"))
             continue
 
-        print(f"  Found {len(roc_rows)} ROC row(s) in distribution JSON for {year}")
+        print(c(CYAN,   f"  Found {len(roc_rows)} ROC row(s) in distribution JSON for {year}"))
 
         # Find sheet
         if fund not in wb.sheetnames:
-            print(f"  WARNING: Sheet '{fund}' not found in {os.path.basename(acb_path)} — skipping.")
-            print(f"           Sheet names found: {', '.join(wb.sheetnames)}")
+            print(c(YELLOW, f"  WARNING: Sheet '{fund}' not found in {os.path.basename(acb_path)} — skipping."))
+            print(c(DIM,    f"           Sheet names found: {', '.join(wb.sheetnames)}"))
             continue
 
         ws = wb[fund]
         last_data_row  = find_last_data_row(ws)
         existing_roc   = get_sheet_roc_rows(ws, last_data_row)
 
-        print(f"  Sheet has {last_data_row - 1} data rows, "
-              f"{len(existing_roc)} existing ROC entries")
+        print(c(DIM,    f"  Sheet has {last_data_row - 1} data rows, {len(existing_roc)} existing ROC entries"))
 
         # Insert
         ins, skip, warn, errs = insert_roc_rows(
@@ -486,14 +491,14 @@ Examples:
             new_last = find_last_data_row(ws)
             integrity_errors = check_formula_integrity(ws, 2, new_last)
             if integrity_errors:
-                print(f"\n  INTEGRITY CHECK FAILED for {fund}:")
+                print(c(RED,   f"\n  INTEGRITY CHECK FAILED for {fund}:"))
                 for e in integrity_errors:
-                    print(f"    {e}")
+                    print(c(RED,   f"    {e}"))
                 rollback        = True
                 rollback_reason = f"Formula integrity check failed on sheet {fund}"
                 break
             else:
-                print(f"  Formula integrity check passed ✓")
+                print(c(GREEN, f"  Formula integrity check passed ✓"))
 
         total_inserted += ins
         total_skipped  += skip
@@ -502,39 +507,39 @@ Examples:
 
     # ── Rollback or save ──────────────────────────────────────────────────────
     if rollback:
-        print(f"\nROLLING BACK — {rollback_reason}")
+        print(c(RED,   f"\n  ROLLING BACK — {rollback_reason}"))
         if backup_path and os.path.exists(backup_path):
             shutil.copy2(backup_path, acb_path)
-            print(f"Restored from backup: {os.path.basename(backup_path)}")
+            print(c(DIM,   f"  Restored from backup: {os.path.basename(backup_path)}"))
         sys.exit(1)
 
     if not args.dry_run and total_inserted > 0:
         wb.save(acb_path)
-        print(f"Saved: {os.path.basename(acb_path)}")
+        print(c(GREEN, f"  Saved: {os.path.basename(acb_path)}"))
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print()
-    print("── Summary " + "─" * 50)
-    print(f"  Inserted : {total_inserted}")
-    print(f"  Skipped  : {total_skipped} (duplicates)")
+    print(c(BOLD + YELLOW, "── Summary " + "─" * 50))
+    print(c(GREEN,  f"  Inserted : {total_inserted}"))
+    print(c(DIM,    f"  Skipped  : {total_skipped} (duplicates)"))
     if total_warned > 0:
-        print(f"  Warnings : {total_warned} (existing ROC with different amount — review manually)")
+        print(c(YELLOW, f"  Warnings : {total_warned} (existing ROC with different amount — review manually)"))
     if args.dry_run:
         print()
-        print("  Dry-run complete — no changes were made.")
+        print(c(YELLOW,  "  Dry-run complete — no changes were made."))
     elif total_inserted == 0 and total_warned == 0:
         print()
-        print("  Nothing to do — all ROC rows already present.")
+        print(c(DIM,     "  Nothing to do — all ROC rows already present."))
     else:
         print()
         if backup_path:
-            print(f"  Backup   : {os.path.basename(backup_path)}")
+            print(c(DIM, f"  Backup   : {os.path.basename(backup_path)}"))
 
     if total_warned > 0:
         print()
-        print("  Done. Open the spreadsheet and verify the inserted rows look correct.")
-        print("  If anything looks wrong, restore the backup by renaming it back to")
-        print(f"  {os.path.basename(acb_path)}")
+        print(c(YELLOW,  "  Done. Open the spreadsheet and verify the inserted rows look correct."))
+        print(c(YELLOW,  "  If anything looks wrong, restore the backup by renaming it back to"))
+        print(c(YELLOW, f"  {os.path.basename(acb_path)}"))
         sys.exit(2)  # warnings present — run_t3.py will show "completed with warnings"
 
 if __name__ == "__main__":

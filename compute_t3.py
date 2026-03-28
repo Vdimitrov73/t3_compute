@@ -8,17 +8,17 @@ Usage:
     python compute_t3.py [--config config.json] [--year 2025] [--funds VBAL ZCN]
 
 Canadian T3 boxes computed:
-    Box 21  — Capital Gains
-    Box 25  — Foreign Non-Business Income
-    Box 26  — Other Income
-    Box 34  — Foreign Non-Business Income Tax Paid
-    Box 42  — Return of Capital
-    Box 49  — Actual Amount of Eligible Dividends
-    Box 50  — Taxable Amount of Eligible Dividends        (Box 49 × grossup)
-    Box 51  — Dividend Tax Credit for Eligible Dividends  (Box 50 × tax_credit)
-    Box 23  — Actual Amount of Non-Eligible Dividends
-    Box 32  — Taxable Amount of Non-Eligible Dividends    (Box 23 × grossup)
-    Box 39  — Dividend Tax Credit for Non-Eligible Dividends
+    Box 21  -- Capital Gains
+    Box 25  -- Foreign Non-Business Income
+    Box 26  -- Other Income
+    Box 34  -- Foreign Non-Business Income Tax Paid
+    Box 42  -- Return of Capital
+    Box 49  -- Actual Amount of Eligible Dividends
+    Box 50  -- Taxable Amount of Eligible Dividends        (Box 49 x grossup)
+    Box 51  -- Dividend Tax Credit for Eligible Dividends  (Box 50 x tax_credit)
+    Box 23  -- Actual Amount of Non-Eligible Dividends
+    Box 32  -- Taxable Amount of Non-Eligible Dividends    (Box 23 x grossup)
+    Box 39  -- Dividend Tax Credit for Non-Eligible Dividends
 
 Phantom (non-cash) distributions:
     The "You should have received" line shows cash only.
@@ -36,7 +36,7 @@ Precision:
         Note: may produce worse results for pre-2025 XLS data where per-unit
         values are truncated to 5 decimal places and do not satisfy the CDS
         formula exactly.
-        
+
     "accumulate":
         Income box totals are accumulated at full float precision and rounded
         to 2 decimal places in the summary. Mathematically clean but may differ
@@ -54,6 +54,12 @@ import sys
 import glob
 from datetime import datetime
 from collections import defaultdict
+try:
+    from t3_colors import use_color, c, BOLD, DIM, CYAN, GREEN, YELLOW, RED
+except ImportError:
+    def use_color(): return False
+    def c(code, text): return text
+    BOLD = DIM = CYAN = GREEN = YELLOW = RED = ""
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -73,6 +79,7 @@ def _set_derived_paths(cfg, year):
     cfg["dist_dir"]   = os.path.join(cfg["base_dir"], year, "distributions")
     cfg["assets_dir"] = os.path.join(cfg["base_dir"], year, "assets")
     cfg["output_txt"] = os.path.join(cfg["base_dir"], year, f"T3_results_{year}.txt")
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Compute T3 slip totals per brokerage account.")
     parser.add_argument("--config", default="config.json", help="Path to config.json")
@@ -96,7 +103,7 @@ def check_rates(tax_year, cfg_rates):
 
 # ── T3 box definitions ────────────────────────────────────────────────────────
 
-# Maps JSON field name → (box number, display label)
+# Maps JSON field name -> (box number, display label)
 FIELD_TO_BOX = {
     "capitalGains":                       ("21", "Capital Gains"),
     "foreignNonBusinessIncome":           ("25", "Foreign Non-Business Income"),
@@ -130,8 +137,8 @@ def load_json(path):
 def fmt2(v):
     return f"${v:,.2f}"
 
-def fmt4(v):
-    return f"${v:,.4f}"
+def fmt5(v):
+    return f"${v:,.5f}"
 
 def parse_date(s):
     return datetime.strptime(s, "%Y-%m-%d").date()
@@ -192,6 +199,9 @@ ROUNDING_PRIORITY = {
     "actualAmountOfNonEligibleDividends": 5,
 }
 
+# LRM only when the candidate landed within this distance of the rnd midpoint.
+SAFE_LRM_THRESHOLD = 0.05
+
 def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
     """
     Returns:
@@ -202,10 +212,10 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
         distribution per-component and preserve the cash total exactly.
         Recommended for 2025+ PDF-sourced data. See config.json "broker_rounding".
     """
-    elig_grossup   = tax_rates["eligible_div_grossup"]
-    elig_credit    = tax_rates["eligible_div_tax_credit"]
-    ne_grossup     = tax_rates["non_eligible_div_grossup"]
-    ne_credit      = tax_rates["non_eligible_div_tax_credit"]
+    elig_grossup = tax_rates["eligible_div_grossup"]
+    elig_credit  = tax_rates["eligible_div_tax_credit"]
+    ne_grossup   = tax_rates["non_eligible_div_grossup"]
+    ne_credit    = tax_rates["non_eligible_div_tax_credit"]
 
     results = {}
     details = {}
@@ -226,37 +236,40 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
                 pay_date  = dist["paymentDate"]
                 shares    = date_map.get(rec_date, 0.0)
                 total     = dist.get("total", 0.0)
-                non_cash  = dist.get("nonCashCapitalGains", dist.get("capitalGains", 0.0)) if not dist.get("capitalGainsDistributedAsCash") else dist.get("nonCashCapitalGains", 0.0)
+                non_cash  = (dist.get("nonCashCapitalGains", dist.get("capitalGains", 0.0))
+                            if not dist.get("capitalGainsDistributedAsCash")
+                            else dist.get("nonCashCapitalGains", 0.0))
                 cash_rcvd = shares * (total - non_cash)
 
                 acc_details.append(f"\n      Distribution record={rec_date} payment={pay_date}:")
 
                 if shares == 0:
-                    acc_details.append(f"         (0 shares held — skipped)")
+                    acc_details.append(f"         (0 shares held -- skipped)")
                     continue
 
                 acc_details.append(f"         Shares held: {shares:,.4f}")
-                acc_details.append(f"         You should have received {fmt2(cash_rcvd)} on or about {pay_date}")
-                acc_details.append(f"         Breakdown:")
 
+                exact        = {f: shares * v for f in FIELD_TO_BOX if (v := dist.get(f, 0.0)) != 0.0}
+                rounded      = {f: round(v, 2) for f, v in exact.items()}
+                recon_fields = [f for f in rounded if f != "foreignNonBusinessIncomeTaxPaid"]
+
+                if broker_rounding and recon_fields:
+                    # Round the dominant field's per-unit to 5dp before LRM.
+                    # For RATE-based ETFs (JSON already stores 5dp values) this is a no-op.
+                    # For PERCENTAGE-based ETFs (JSON stores full pct×total precision)
+                    # this aligns the dominant component with the broker's calculation.
+                    dom = max(recon_fields, key=lambda f: dist.get(f, 0.0))
+                    exact[dom]   = shares * round(dist.get(dom, 0.0), 5)
+                    rounded[dom] = round(exact[dom], 2)
                 if broker_rounding:
-                    # ── Largest Remainder per-distribution rounding ───────────────
-                    # Round each component, then reconcile cash components to the
-                    # rounded cash total. Penny goes to largest fractional remainder;
-                    # ties broken by ROUNDING_PRIORITY (ROC absorbs before income).
-                    # Box 34 (foreignTax) is rounded independently — not part of cash.
                     recon_target = round(shares * (total - non_cash), 2)
-                    exact   = {f: shares * v for f in FIELD_TO_BOX
-                               if (v := dist.get(f, 0.0)) != 0.0}
-                    rounded = {f: round(v, 2) for f, v in exact.items()}
-                    recon_fields = [f for f in rounded
-                                    if f != "foreignNonBusinessIncomeTaxPaid"]
-                    diff_pennies = round(
-                        (recon_target - sum(rounded[f] for f in recon_fields)) * 100
+                    diff_pennies = round((recon_target - sum(rounded[f] for f in recon_fields)) * 100)
+                    genuine_constraint = (
+                        abs(sum(exact.get(f, 0.0) for f in recon_fields)
+                            - shares * (total - non_cash)) > 0.001
                     )
-                    if diff_pennies != 0 and abs(diff_pennies) <= 2:
-                        def frac(f):
-                            return round(exact[f] - int(exact[f] * 100) / 100.0, 6)
+                    if diff_pennies != 0 and abs(diff_pennies) <= 2 and (genuine_constraint or diff_pennies < 0):
+                        frac = lambda f: round(exact[f] - int(exact[f] * 100) / 100.0, 6)
                         sign = 1 if diff_pennies > 0 else -1
                         if diff_pennies > 0:
                             ordered = sorted(recon_fields,
@@ -265,17 +278,26 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
                         else:
                             ordered = sorted(recon_fields,
                                 key=lambda f: (frac(f), ROUNDING_PRIORITY.get(f, 99), exact[f]))
-                        for i in range(abs(int(diff_pennies))):
-                            f = ordered[i % len(ordered)]
-                            rounded[f] = round(rounded[f] + sign * 0.01, 2)
+                        # Safe threshold guard: skip LRM if no candidate was borderline
+                        best_midpt_dist = abs(frac(ordered[0]) * 100 - 0.5)
+                        if best_midpt_dist <= SAFE_LRM_THRESHOLD:
+                            for i in range(abs(int(diff_pennies))):
+                                f = ordered[i % len(ordered)]
+                                rounded[f] = round(rounded[f] + sign * 0.01, 2)
+
+                cash_display = (recon_target if broker_rounding else round(cash_rcvd, 2))
+                
+                acc_details.append(f"         You should have received {fmt2(cash_display)} on or about {pay_date}")
+                acc_details.append(f"         Breakdown:")
+
+                if broker_rounding:
                     for field, dollar in rounded.items():
                         fund_totals[field] += dollar
                         box, label = FIELD_TO_BOX[field]
                         acc_details.append(
-                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} × {fmt4(dist.get(field,0.0))} = {fmt2(dollar)}"
+                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} x {fmt5(dist.get(field, 0.0))} = {fmt2(dollar)}"
                         )
                 else:
-                    # ── Default: accumulate full precision ────────────────────────
                     for field, (box, label) in FIELD_TO_BOX.items():
                         val = dist.get(field, 0.0)
                         if val == 0.0:
@@ -283,7 +305,7 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
                         dollar = shares * val
                         fund_totals[field] += dollar
                         acc_details.append(
-                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} × {fmt4(val)} = {fmt2(dollar)}"
+                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} x {fmt5(val)} = {fmt2(dollar)}"
                         )
 
             # Accumulate fund totals into account totals
@@ -296,9 +318,9 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
                     )
                     acc_totals[field] += total_val
 
-        # Derived boxes — eligible dividends
-        # Each step is rounded before feeding into the next, matching broker behaviour:
-        # Box49 (rounded) → Box50 (rounded) → Box51
+        # Derived boxes -- eligible dividends
+        # Each step rounded before feeding the next, matching broker behaviour:
+        # Box49 (rounded) -> Box50 (rounded) -> Box51
         elig_div = acc_totals.get("actualAmountOfEligibleDividends", 0.0)
         if elig_div:
             elig_div_rounded = round(elig_div, 2)
@@ -306,8 +328,8 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
             acc_totals["taxableAmountOfEligibleDividends"]      = taxable
             acc_totals["dividendTaxCreditForEligibleDividends"] = round(taxable * elig_credit, 2)
 
-        # Derived boxes — non-eligible dividends (same rounding chain)
-        # Box23 (rounded) → Box32 (rounded) → Box39
+        # Derived boxes -- non-eligible dividends (same rounding chain)
+        # Box23 (rounded) -> Box32 (rounded) -> Box39
         ne_div = acc_totals.get("actualAmountOfNonEligibleDividends", 0.0)
         if ne_div:
             ne_div_rounded = round(ne_div, 2)
@@ -321,34 +343,57 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
     return results, details
 
 # ── Output formatting ─────────────────────────────────────────────────────────
+try:
+    from t3_colors import (use_color, strip_ansi, c,
+                           BOLD, DIM, CYAN, GREEN, YELLOW,
+                           colorize_detail)
+except ImportError:                        # fallback: colors silently disabled
+    def use_color(): return False
+    def strip_ansi(t): return t
+    def c(code, text): return text
+    def colorize_detail(line): return line
+    BOLD = DIM = CYAN = GREEN = YELLOW = ""
 
 def print_results(results, details, output_file=None):
     lines = []
-
+    
     for account in sorted(results.keys()):
-        for line in details[account]:
-            lines.append(line)
+        for raw_line in details[account]:
+            lines.append(colorize_detail(raw_line) if use_color() else raw_line)
 
-    lines.append("\n" + "=" * 60)
-    lines.append("RESULTS SUMMARY")
-    lines.append("=" * 60)
+    sep     = "=" * 80
+    FILL_W = 54
+    VAL_W  = 11
+        
+    lines.append("")
+    lines.append(c(BOLD + YELLOW, sep))
+    lines.append(c(BOLD + YELLOW, f"  {'RESULTS SUMMARY':^68}  "))
+    lines.append(c(BOLD + YELLOW, sep))
 
     for account, totals in sorted(results.items()):
-        lines.append(f"\nT3 for '{account}':")
+        lines.append("")
+        lines.append(c(BOLD + CYAN, f"  T3 for '{account}':"))
+#        lines.append(c(DIM, "  " + sub_sep))
+
         for field, box, label in SUMMARY_FIELDS:
             val = totals.get(field, 0.0)
             if val == 0.0:
                 continue
-            lines.append(f"   Box {box:>2}  {label:<50}: {fmt2(val)}")
+            dots      = "." * max(2, FILL_W - len(label) - 1)
+            label_dot = f"{label} {dots}"
+            val_right = fmt2(val).rjust(VAL_W)
+            lines.append(f"    {c(CYAN, f'Box {box:>2}')}  {label_dot}  {c(GREEN, val_right)}")
 
+    lines.append("")
+    lines.append(c(BOLD + YELLOW, sep))
     output = "\n".join(lines)
     print(output)
 
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
-            f.write(output)
-        print(f"\nResults saved to: {output_file}")
-
+            f.write(strip_ansi(output))
+        print(c(DIM, f"\n  Results saved to: {output_file}"))
+        
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():

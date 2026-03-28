@@ -36,6 +36,12 @@ import sys
 from collections import defaultdict
 from datetime import datetime, date
 
+try:
+    from t3_colors import c, DIM, CYAN, GREEN, YELLOW, RED
+except ImportError:
+    def c(code, text): return text
+    DIM = CYAN = GREEN = YELLOW = RED = ""
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 def load_config(path="config.json"):
@@ -127,8 +133,8 @@ def load_sheet(xls_path, sheet_name):
         try:
             import xlrd
         except ImportError:
-            print("\nERROR: xlrd is required to read .xls files.")
-            print("  Run:  pip install xlrd==1.2.0")
+            print(c(RED, "\n  ERROR: xlrd is required to read .xls files."))
+            print(c(DIM,  "    Run:  pip install xlrd==1.2.0"))
             sys.exit(1)
         wb = xlrd.open_workbook(xls_path)
         if sheet_name not in wb.sheet_names():
@@ -137,8 +143,8 @@ def load_sheet(xls_path, sheet_name):
         rows = []
         for r in range(ws.nrows):
             row = []
-            for c in range(ws.ncols):
-                cell = ws.cell(r, c)
+            for ci in range(ws.ncols):
+                cell = ws.cell(r, ci)
                 row.append(cell.value)
             rows.append(row)
         return rows
@@ -200,9 +206,9 @@ def get_share_balance_on_date(rows, target_date, col_date, col_share, fund=""):
             cached = parse_number(data_rows[best_row_idx][col_share]) if len(data_rows[best_row_idx]) > col_share else None
             if cached is not None and abs(cached - best_share) > 0.001:
                 label = f"[{fund}] " if fund else ""
-                print(f"  {label}WARNING: Share balance mismatch on {best_date} — "
+                print(c(YELLOW, f"  {label}WARNING: Share balance mismatch on {best_date} — "
                       f"computed {best_share:,.4f} from Buy/Sell vs cached {cached:,.4f} in col G. "
-                      f"Check your spreadsheet for missing or incorrect transactions.")
+                      f"Check your spreadsheet for missing or incorrect transactions."))
                 return best_share, True   # (value, had_warning)
 
     return best_share, False   # (value, had_warning)
@@ -290,17 +296,17 @@ def main():
 
     # ── Prerequisite check ────────────────────────────────────────────────────
     if not os.path.exists(xls_path):
-        print(f"ERROR: ACB spreadsheet not found: {xls_path}")
-        print("       Update 'acb_spreadsheet' in config.json.")
+        print(c(RED, f"  ERROR: ACB spreadsheet not found: {xls_path}"))
+        print(c(DIM,  "         Update 'acb_spreadsheet' in config.json."))
         sys.exit(1)
     if not os.path.isdir(dist_dir):
-        print(f"ERROR: Distributions folder not found: {dist_dir}")
-        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        print(c(RED, f"  ERROR: Distributions folder not found: {dist_dir}"))
+        print(c(DIM,  "         Run Step 1 (parse_t3_pdfs.py) first."))
         sys.exit(1)
     dist_jsons = [f for f in os.listdir(dist_dir) if re.match(r'^[A-Z]+\.json$', f)]
     if not dist_jsons:
-        print(f"ERROR: No distribution JSONs found in: {dist_dir}")
-        print("       Run Step 1 (parse_t3_pdfs.py) first.")
+        print(c(RED, f"ERROR: No distribution JSONs found in: {dist_dir}"))
+        print(c(DIM,  "         Run Step 1 (parse_t3_pdfs.py) first."))
         sys.exit(1)
 
     # Load account periods from account_periods.json
@@ -319,11 +325,11 @@ def main():
             sys.exit(1)
         funds = sorted(f.replace(".json", "") for f in json_files)
 
-    print(f"Tax year       : {tax_year}")
-    print(f"Dist dir       : {dist_dir}")
-    print(f"Assets dir     : {assets_dir}")
-    print(f"ACB spreadsheet: {xls_path}")
-    print(f"Funds          : {', '.join(funds)}")
+    print(c(DIM, f"Tax year       : {tax_year}"))
+    print(c(DIM, f"Dist dir       : {dist_dir}"))
+    print(c(DIM, f"Assets dir     : {assets_dir}"))
+    print(c(DIM, f"ACB spreadsheet: {xls_path}"))
+    print(c(DIM, f"Funds          : {', '.join(funds)}"))
     print()
 
     fund_data    = {}
@@ -333,7 +339,7 @@ def main():
     for fund in funds:
         json_path = os.path.join(dist_dir, f"{fund}.json")
         if not os.path.exists(json_path):
-            print(f"  WARNING: {json_path} not found — skipping {fund}.")
+            print(c(YELLOW, f"  WARNING: {json_path} not found — skipping {fund}."))
             continue
 
         with open(json_path) as f:
@@ -347,15 +353,15 @@ def main():
                 pass
 
         if not record_dates:
-            print(f"  {fund}: no distributions, skipping.")
+            print(c(DIM,    f"  {fund}: no distributions, skipping."))
             continue
 
-        print(f"Processing {fund}  ({len(record_dates)} record date(s))...")
+        print(c(CYAN,   f"Processing {fund}  ({len(record_dates)} record date(s))..."))
 
         # Get account periods (from JSON or interactive)
         periods = get_account_periods(fund, tax_year, all_periods, record_dates)
         if periods is None:
-            print(f"  Skipping {fund}.")
+            print(c(DIM,    f"  Skipping {fund}."))
             continue
 
         # Track account names in order of first appearance
@@ -366,8 +372,8 @@ def main():
         # Load ACB sheet
         rows = load_sheet(xls_path, fund)
         if rows is None:
-            print(f"  WARNING: Sheet '{fund}' not found in {xls_path} — skipping.")
-            print(f"           Sheet name must match the fund ticker exactly.")
+            print(c(YELLOW, f"  WARNING: Sheet '{fund}' not found in {xls_path} — skipping."))
+            print(c(DIM,    f"           Sheet name must match the fund ticker exactly."))
             warning_count += 1
             continue
 
@@ -378,8 +384,8 @@ def main():
             if had_mismatch:
                 warning_count += 1
             if shares is None:
-                print(f"  WARNING: Could not find share balance for {fund} on {d}")
-                print(f"           Make sure a Buy/Sell row exists on or before this date.")
+                print(c(YELLOW, f"  WARNING: Could not find share balance for {fund} on {d}"))
+                print(c(DIM,    f"           Make sure a Buy/Sell row exists on or before this date."))
                 shares = 0.0
                 warning_count += 1
             shares_by_date[d] = round(shares, 4)
@@ -391,7 +397,7 @@ def main():
         }
 
     if not fund_data or not all_accounts:
-        print("\nNo data collected. Exiting.")
+        print(c(YELLOW,  "\n  No data collected. Exiting."))
         if warning_count > 0:
             sys.exit(2)
         return
@@ -416,7 +422,6 @@ def main():
         for fund, entries in sorted(funds_data.items()):
             output[fund] = entries
 
-        filename = f"{sanitize_filename(account)}_{tax_year}.json"
         out_path = os.path.join(assets_dir, f"{sanitize_filename(account)}_{tax_year}.json")
 
         with open(out_path, "w") as f:
@@ -438,14 +443,14 @@ def main():
             lines.append('}')
             f.writelines(lines)
 
-        print(f"Saved: {out_path}")
+        print(c(GREEN,  f"  Saved: {out_path}"))
 
     if warning_count > 0:
-        print(f"\n  WARNING: {warning_count} warning(s) — share balances may be incomplete.")
-        print(f"  Review the warnings above before running Step 4.")
+        print(c(YELLOW, f"\n  WARNING: {warning_count} warning(s) — share balances may be incomplete."))
+        print(c(YELLOW,  "  Review the warnings above before running Step 4."))
         sys.exit(2)
 
-    print("\nDone.")
+    print(c(GREEN,   "\n  Done."))
 
 
 if __name__ == "__main__":

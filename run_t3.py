@@ -57,6 +57,13 @@ import shutil
 from datetime import date
 from pathlib import Path
 
+try:
+    from t3_colors import use_color, c, BOLD, DIM, CYAN, GREEN, YELLOW, RED
+except ImportError:
+    def use_color(): return False
+    def c(code, text): return text
+    BOLD = DIM = CYAN = GREEN = YELLOW = RED = ""
+
 # ── Config directory ─────────────────────────────────────────────────────────
 
 def get_config_dir(script_dir):
@@ -128,31 +135,34 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
     and funds.json for a new user. Only called when at least one of these
     files is missing.
     """
+    def row(content):
+        return c(BOLD + YELLOW, "║") + c(BOLD + CYAN, content) + c(BOLD + YELLOW, "║")
+    
     print()
-    print("  ╔══════════════════════════════════════════════════════╗")
-    print("  ║           T3 Compute — First-Time Setup              ║")
-    print("  ╚══════════════════════════════════════════════════════╝")
+    print(c(BOLD + YELLOW, "  ╔══════════════════════════════════════════════════════╗"))
+    print("  " + row(      "             T3 Compute — First-Time Setup            "))
+    print(c(BOLD + YELLOW, "  ╚══════════════════════════════════════════════════════╝"))
     print()
-    print("  Welcome! This wizard will create your config files.")
-    print("  You can edit them manually at any time after setup.")
+    print(c(BOLD + CYAN, "  Welcome! This wizard will create your config files."))
+    print(c(BOLD + CYAN, "  You can edit them manually at any time after setup."))
     print()
 
     # ── 1. Tax year ───────────────────────────────────────────────────────────
     _separator()
-    print("  STEP 1 of 5 — Tax Year")
+    print(c(BOLD + CYAN, "  STEP 1 of 5 — Tax Year"))
     print()
-    print("  Which tax year are you processing?")
-    print("  (CDS releases T3 statements in February for the prior year)")
+    print(c(BOLD + CYAN, "  Which tax year are you processing?"))
+    print(c(BOLD + CYAN, "  (CDS releases T3 statements in February for the prior year)"))
     print()
     while True:
         year = _prompt("Tax year (e.g. 2025)")
         if year and year.isdigit() and 2019 <= int(year) <= date.today().year:
             break
-        print("  Please enter a valid 4-digit year.")
+        print(c(BOLD + YELLOW, "  Please enter a valid 4-digit year."))
 
     # ── 2. Base directory ─────────────────────────────────────────────────────
     _separator()
-    print("  STEP 2 of 5 — Folder for T3 source files and output")
+    print(c(BOLD + CYAN, "  STEP 2 of 5 — Folder for T3 source files and output"))
     print()
     print("  This is where your CDS T3 statements live and where the")
     print("  pipeline will write its output files.")
@@ -167,7 +177,7 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
 
     # ── 3. ACB spreadsheet ────────────────────────────────────────────────────
     _separator()
-    print("  STEP 3 of 5 — ACB Spreadsheet")
+    print(c(BOLD + CYAN, "  STEP 3 of 5 — ACB Spreadsheet"))
     print()
     print("  Full path to your ACB tracking spreadsheet (.xlsx).")
     print("  If you haven't created it yet, copy acb_worksheet_template.xlsx")
@@ -182,7 +192,7 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
 
     # ── 4. Funds ──────────────────────────────────────────────────────────────
     _separator()
-    print("  STEP 4 of 5 — Funds")
+    print(c(BOLD + CYAN, "  STEP 4 of 5 — Funds"))
     print()
     print("  Enter the ticker symbols of the ETFs you hold, separated by spaces.")
     print("  These must match the sheet names in your ACB spreadsheet exactly.")
@@ -199,7 +209,7 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
 
     # ── 5. Brokerage accounts ─────────────────────────────────────────────────
     _separator()
-    print("  STEP 5 of 5 — Brokerage Accounts")
+    print(c(BOLD + CYAN, "  STEP 5 of 5 — Brokerage Accounts"))
     print()
     print("  The pipeline needs to know which brokerage held each fund")
     print("  on each distribution record date, so it can split the T3")
@@ -338,12 +348,12 @@ def run_first_time_setup(script_dir, config_dir, config_path, periods_path, fund
 
     # ── Summary ───────────────────────────────────────────────────────────────
     _separator()
-    print("  ✓  Setup complete! Config files written:")
-    print(f"     config.json            tax year {year}, {len(funds)} fund(s)")
-    print(f"     account_periods.json   {num_accounts} account(s)")
-    print(f"     funds.json             {', '.join(funds)}")
+    print(c(GREEN,  "  ✓  Setup complete! Config files written:"))
+    print(c(GREEN,  f"     config.json            tax year {year}, {len(funds)} fund(s)"))
+    print(c(GREEN,  f"     account_periods.json   {num_accounts} account(s)"))
+    print(c(GREEN,  f"     funds.json             {', '.join(funds)}"))
     if acb_copied:
-        print(f"     acb_worksheet.xlsx     copied from template to {acb_path}")
+        print(c(GREEN,  f"     acb_worksheet.xlsx     copied from template to {acb_path}"))
     print()
     print("  Next steps before running the pipeline:")
     print()
@@ -396,13 +406,15 @@ def check_and_run_setup(script_dir, config_dir, args):
     if not missing:
         return   # all present, nothing to do
 
+    def row(content):
+        return c(BOLD + YELLOW, "│") + c(BOLD + CYAN, content) + c(BOLD + YELLOW, "│")
     print()
-    print("  ┌─────────────────────────────────────────────────────┐")
-    print("  │  Welcome to T3 Compute!                             │")
-    print("  │  Config files not found — starting setup wizard...  │")
-    print("  └─────────────────────────────────────────────────────┘")
+    print(c(BOLD + YELLOW, "  ┌───────────────────────────────────────────────────────┐"))
+    print("  " + row(      "     Welcome to T3 Compute!                            "))
+    print("  " + row(      "     Config files not found — starting setup wizard... "))
+    print(c(BOLD + YELLOW, "  └───────────────────────────────────────────────────────┘"))
     print()
-    print(f"  Missing: {', '.join(missing)}")
+    print(c(YELLOW, f"  Missing: {', '.join(missing)}"))
 
     run_first_time_setup(script_dir, config_dir, config_path, periods_path, funds_path)
 
@@ -508,9 +520,9 @@ def run_step(step_num, args):
     """Import and execute the main() of the requested step."""
     info = STEPS[step_num]
     print()
-    print("=" * 60)
-    print(f"  STEP {step_num}: {info['name']}")
-    print("=" * 60)
+    print(c(BOLD + YELLOW, "=" * 60))
+    print(c(BOLD + YELLOW, f"  STEP {step_num}: {info['name']}"))
+    print(c(BOLD + YELLOW, "=" * 60))
 
     original_argv = sys.argv
     sys.argv = build_step_argv(args, step_num)
@@ -531,34 +543,36 @@ def run_step(step_num, args):
     except SystemExit as e:
         if e.code == 2:
             # Exit code 2 = completed with warnings (e.g. missing PDFs in Step 1)
-            print(f"\nStep {step_num} completed with warnings — see above.")
+            print(c(YELLOW, f"\n  Step {step_num} completed with warnings — see above."))
             sys.argv = original_argv
             return
         if e.code != 0:
-            print(f"\nStep {step_num} exited with code {e.code}.")
+            print(c(RED, f"\n  Step {step_num} exited with code {e.code}."))
             raise
     except Exception as e:
-        print(f"\nERROR in step {step_num}: {e}")
+        print(c(RED, f"\n  ERROR in step {step_num}: {e}"))
         raise
     finally:
         sys.argv = original_argv
 
-    print(f"\nStep {step_num} completed successfully.")
+    print(c(GREEN, f"\n  Step {step_num} completed successfully."))
 
 # ── Interactive menu ──────────────────────────────────────────────────────────
 
 def show_menu():
+    def row(content):
+        return c(BOLD + YELLOW, "║") + c(BOLD + CYAN, content) + c(BOLD + YELLOW, "║")
     print()
-    print("╔═══════════════════════════════════════════════════════════╗")
-    print("║                    T3 Tax Pipeline                        ║")
-    print("╠═══════════════════════════════════════════════════════════╣")
-    print("║  1  Parse T3 PDFs           Reads CDS PDFs → JSONs + ACB  ║")
-    print("║  2  Update ACB Spreadsheet  Inserts ROC rows from Step 1  ║")
-    print("║  3  Build Assets            Reads ACB spreadsheet → JSONs ║")
-    print("║  4  Compute T3              Reads JSONs → T3 slip totals  ║")
-    print("║  A  Run all steps           Execute all steps in sequence ║")
-    print("║  Q  Quit                                                  ║")
-    print("╚═══════════════════════════════════════════════════════════╝")
+    print(c(BOLD + YELLOW, "╔═══════════════════════════════════════════════════════════╗"))
+    print(row(             "                    T3 Tax Pipeline                        "))
+    print(c(BOLD + YELLOW, "╠═══════════════════════════════════════════════════════════╣"))
+    print(row(             "  1  Parse T3 PDFs           Reads CDS PDFs → JSONs + ACB  "))
+    print(row(             "  2  Update ACB Spreadsheet  Inserts ROC rows from Step 1  "))
+    print(row(             "  3  Build Assets            Reads ACB spreadsheet → JSONs "))
+    print(row(             "  4  Compute T3              Reads JSONs → T3 slip totals  "))
+    print(row(             "  A  Run all steps           Execute all steps in sequence "))
+    print(row(             "  Q  Quit                                                  "))
+    print(c(BOLD + YELLOW, "╚═══════════════════════════════════════════════════════════╝"))
     print()
 
 def interactive_mode(args):
@@ -569,17 +583,17 @@ def interactive_mode(args):
 
     while True:
         show_menu()
-        choice = input("  Enter choice [1 / 2 / 3 / 4 / A / Q]: ").strip().upper()
+        choice = input(c(BOLD + CYAN, "  Enter choice [1 / 2 / 3 / 4 / A / Q]: ")).strip().upper()
 
         if choice == "Q":
-            print("Exiting.")
+            print(c(BOLD + CYAN, "Exiting."))
             break
         elif choice == "A":
             steps_to_run = [1, 2, 3, 4]
         elif choice in ("1", "2", "3", "4"):
             steps_to_run = [int(choice)]
         else:
-            print("  Invalid choice, please try again.")
+            print(c(BOLD + YELLOW,"  Invalid choice, please try again."))
             continue
 
         # Reset overrides each iteration so pressing Enter truly means "use config default"
@@ -588,7 +602,7 @@ def interactive_mode(args):
 
         # Optional year override
         year_input = input(
-            "  Tax year override? (press Enter to use config default): "
+            c(BOLD + CYAN, "  Tax year override? (press Enter to use config default): ")
         ).strip()
         if year_input:
             args.year = year_input
@@ -596,7 +610,7 @@ def interactive_mode(args):
         # Optional fund override for all steps
         if any(s in steps_to_run for s in (1, 2, 3, 4)):
             funds_input = input(
-                "  Fund override? (e.g. VBAL ZCN, or Enter for all): "
+                c(BOLD + CYAN, "  Fund override? (e.g. VBAL ZCN, or Enter for all): ")
             ).strip()
             if funds_input:
                 args.funds = funds_input.split()
@@ -604,7 +618,7 @@ def interactive_mode(args):
         # Dry-run option for step 2
         if 2 in steps_to_run:
             dry = input(
-                "  Dry-run for Step 2? Preview insertions without modifying file [Y/N]: "
+                c(BOLD + CYAN, "  Dry-run for Step 2? Preview insertions without modifying file [Y/N]: ")
             ).strip().upper()
             args.dry_run = (dry == "Y")
 
@@ -616,9 +630,9 @@ def interactive_mode(args):
             print("\nPipeline stopped due to an error.")
 
         print()
-        again = input("  Run another step? [Y / N]: ").strip().upper()
+        again = input(c(BOLD + CYAN, "  Run another step? [Y / N]: ")).strip().upper()
         if again != "Y":
-            print("Exiting.")
+            print(c(BOLD + CYAN, "Exiting."))
             break
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -649,9 +663,9 @@ def main():
         try:
             for step_num in (1, 2, 3, 4):
                 run_step(step_num, args)
-            print("\nAll steps completed.")
+            print(c(BOLD + GREEN, "\nAll steps completed."))
         except (SystemExit, Exception):
-            print("\nPipeline stopped due to an error.")
+            print(c(BOLD + RED, "\nPipeline stopped due to an error."))
     else:
         run_step(args.step, args)
 

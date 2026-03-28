@@ -90,8 +90,8 @@ attached to the release automatically.
 To trigger a new build, create and push a version tag:
 
 ```
-git tag -a v1.4.2 -m "v1.4.2"
-git push origin v1.4.2
+git tag -a v1.5.0 -m "v1.5.0"
+git push origin v1.5.0
 ```
 
 ---
