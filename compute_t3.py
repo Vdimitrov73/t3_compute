@@ -25,26 +25,11 @@ Phantom (non-cash) distributions:
     All income components are still fully reported for tax purposes.
 
 Precision:
-    Two rounding modes are available via "broker_rounding" in config.json:
-
-    "largest_remainder" (default):
-        Each distribution is rounded per-component, then a cash-preservation
-        constraint forces the cash components to sum exactly to the rounded
-        cash total for that distribution. Penny adjustments go to the field
-        with the largest fractional remainder; ties broken by ROUNDING_PRIORITY.
-        Recommended for 2025 and later (PDF-based CDS files).
-        Note: may produce worse results for pre-2025 XLS data where per-unit
-        values are truncated to 5 decimal places and do not satisfy the CDS
-        formula exactly.
-
-    "accumulate":
-        Income box totals are accumulated at full float precision and rounded
-        to 2 decimal places in the summary. Mathematically clean but may differ
-        from broker T3 slips by $0.01 on some boxes.
-        Recommended for 2024 and earlier (XLS-based CDS files).
-
+    Each distribution component is accumulated at full float precision.
+    Each fund's subtotal is rounded to 2 decimal places before being added
+    to the account total, matching broker T3 slip aggregation behaviour.
     Derived boxes (50, 51, 32, 39) are computed from the rounded Box 49/23
-    values in both modes.
+    account totals.
 """
 
 import argparse
@@ -188,29 +173,11 @@ def load_assets(assets_dir):
 
 # ── Core computation ──────────────────────────────────────────────────────────
 
-# Tie-breaking priority for largest_remainder mode.
-# Lower number = absorbs penny adjustment first (ROC before income boxes).
-ROUNDING_PRIORITY = {
-    "returnOfCapital":                    0,
-    "otherIncome":                        1,
-    "foreignNonBusinessIncome":           2,
-    "capitalGains":                       3,
-    "actualAmountOfEligibleDividends":    4,
-    "actualAmountOfNonEligibleDividends": 5,
-}
-
-# LRM only when the candidate landed within this distance of the rnd midpoint.
-SAFE_LRM_THRESHOLD = 0.05
-
-def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
+def compute_t3(funds, accounts, tax_rates):
     """
     Returns:
         results : dict  account -> {field -> total_dollars}
         details : dict  account -> list of strings (verbose log)
-
-    broker_rounding: if True, uses the Largest Remainder Method to round each
-        distribution per-component and preserve the cash total exactly.
-        Recommended for 2025+ PDF-sourced data. See config.json "broker_rounding".
     """
     elig_grossup = tax_rates["eligible_div_grossup"]
     elig_credit  = tax_rates["eligible_div_tax_credit"]
@@ -249,64 +216,18 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
 
                 acc_details.append(f"         Shares held: {shares:,.4f}")
 
-                exact        = {f: shares * v for f in FIELD_TO_BOX if (v := dist.get(f, 0.0)) != 0.0}
-                rounded      = {f: round(v, 2) for f, v in exact.items()}
-                recon_fields = [f for f in rounded if f != "foreignNonBusinessIncomeTaxPaid"]
-
-                if broker_rounding and recon_fields:
-                    # Round the dominant field's per-unit to 5dp before LRM.
-                    # For RATE-based ETFs (JSON already stores 5dp values) this is a no-op.
-                    # For PERCENTAGE-based ETFs (JSON stores full pct×total precision)
-                    # this aligns the dominant component with the broker's calculation.
-                    dom = max(recon_fields, key=lambda f: dist.get(f, 0.0))
-                    exact[dom]   = shares * round(dist.get(dom, 0.0), 5)
-                    rounded[dom] = round(exact[dom], 2)
-                if broker_rounding:
-                    recon_target = round(shares * (total - non_cash), 2)
-                    diff_pennies = round((recon_target - sum(rounded[f] for f in recon_fields)) * 100)
-                    genuine_constraint = (
-                        abs(sum(exact.get(f, 0.0) for f in recon_fields)
-                            - shares * (total - non_cash)) > 0.001
-                    )
-                    if diff_pennies != 0 and abs(diff_pennies) <= 2 and (genuine_constraint or diff_pennies < 0):
-                        frac = lambda f: round(exact[f] - int(exact[f] * 100) / 100.0, 6)
-                        sign = 1 if diff_pennies > 0 else -1
-                        if diff_pennies > 0:
-                            ordered = sorted(recon_fields,
-                                key=lambda f: (frac(f), -ROUNDING_PRIORITY.get(f, 99), exact[f]),
-                                reverse=True)
-                        else:
-                            ordered = sorted(recon_fields,
-                                key=lambda f: (frac(f), ROUNDING_PRIORITY.get(f, 99), exact[f]))
-                        # Safe threshold guard: skip LRM if no candidate was borderline
-                        best_midpt_dist = abs(frac(ordered[0]) * 100 - 0.5)
-                        if best_midpt_dist <= SAFE_LRM_THRESHOLD:
-                            for i in range(abs(int(diff_pennies))):
-                                f = ordered[i % len(ordered)]
-                                rounded[f] = round(rounded[f] + sign * 0.01, 2)
-
-                cash_display = (recon_target if broker_rounding else round(cash_rcvd, 2))
-                
-                acc_details.append(f"         You should have received {fmt2(cash_display)} on or about {pay_date}")
+                acc_details.append(f"         You should have received {fmt2(round(cash_rcvd, 2))} on or about {pay_date}")
                 acc_details.append(f"         Breakdown:")
 
-                if broker_rounding:
-                    for field, dollar in rounded.items():
-                        fund_totals[field] += dollar
-                        box, label = FIELD_TO_BOX[field]
-                        acc_details.append(
-                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} x {fmt5(dist.get(field, 0.0))} = {fmt2(dollar)}"
-                        )
-                else:
-                    for field, (box, label) in FIELD_TO_BOX.items():
-                        val = dist.get(field, 0.0)
-                        if val == 0.0:
-                            continue
-                        dollar = shares * val
-                        fund_totals[field] += dollar
-                        acc_details.append(
-                            f"            Box {box:>2} {label:<45}: {shares:>12,.4f} x {fmt5(val)} = {fmt2(dollar)}"
-                        )
+                for field, (box, label) in FIELD_TO_BOX.items():
+                    val = dist.get(field, 0.0)
+                    if val == 0.0:
+                        continue
+                    dollar = shares * val
+                    fund_totals[field] += dollar
+                    acc_details.append(
+                        f"            Box {box:>2} {label:<45}: {shares:>12,.4f} x {fmt5(val)} = {fmt2(dollar)}"
+                    )
 
             # Accumulate fund totals into account totals
             if any(v != 0 for v in fund_totals.values()):
@@ -316,7 +237,7 @@ def compute_t3(funds, accounts, tax_rates, broker_rounding=True):
                     acc_details.append(
                         f"         Box {box:>2} {label:<45}: {fmt2(total_val)}"
                     )
-                    acc_totals[field] += total_val
+                    acc_totals[field] += round(total_val, 2)
 
         # Derived boxes -- eligible dividends
         # Each step rounded before feeding the next, matching broker behaviour:
@@ -453,16 +374,10 @@ def main():
     accounts = load_assets(assets_dir)
     print(f"  Loaded {len(accounts)} account(s): {', '.join(sorted(accounts.keys()))}")
 
-    broker_rounding = cfg.get("broker_rounding", True)
-    if broker_rounding:
-        print("Rounding mode: largest_remainder (broker_rounding=true in config)")
-    else:
-        print("Rounding mode: accumulate (broker_rounding=false in config)")
-    print("\nBeginning computation...")
-    results, details = compute_t3(funds, accounts, tax_rates, broker_rounding=broker_rounding)
+    print("\\nBeginning computation...")
+    results, details = compute_t3(funds, accounts, tax_rates)
 
     print_results(results, details, output_txt)
-
 
 if __name__ == "__main__":
     main()

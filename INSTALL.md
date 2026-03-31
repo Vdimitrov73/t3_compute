@@ -79,12 +79,6 @@ After setup, the wizard writes three config files:
 - `account_periods.json` — brokerage account periods per fund
 - `funds.json` — per-fund PDF parsing hints
 
-**Rounding mode:** `broker_rounding` controls how per-distribution cent rounding
-works in Step 4. The default (`true`) uses the Largest Remainder Method, which
-best matches broker T3 slips for 2025+ PDF-based data. If you are processing
-**2024 or earlier** data (XLS format), set `"broker_rounding": false` in
-`config.json` for better results with the older XLS format.
-
 These files are excluded from git via `.gitignore` and will never be
 accidentally committed. You can edit them manually at any time.
 

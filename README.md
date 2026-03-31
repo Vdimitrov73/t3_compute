@@ -64,7 +64,6 @@ Your CDS T3 PDF or XLS file
 - Inserts ROC and phantom distribution rows directly into your ACB spreadsheet
 - Supports multiple brokerages and mid-year account transfers
 - First-run setup wizard — no manual JSON editing required
-- Two rounding modes: `largest_remainder` (default, 2025+) and `accumulate`
 - Fully local — no internet connection, no data collection
 
 ---
@@ -121,8 +120,6 @@ python run_t3.py --help                       Show all options
 3. Add a new year block to `account_periods.json`
 4. Enter all Buy/Sell transactions for the year into the ACB spreadsheet
 5. Run Step 1 → Step 2 → Step 3 → Step 4
-6. If processing **2024 or earlier** data, set `"broker_rounding": false`
-   in `config.json` before running Step 4
 
 ---
 

@@ -3,6 +3,16 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.5.1 — 2026-03-31
+- Removed: `broker_rounding` config option and all LRM code — accumulate
+  mode with fund-boundary rounding is now the only mode. Results match
+  broker T3 slips across all tested brokers (TD DI, Wealthsimple, Disnat)
+  for both 2024 and 2025 data. No config changes required — the key is
+  simply ignored if present in older configs.
+- Fix: cross-fund float accumulation corrected — each fund's subtotal is
+  now rounded to 2dp before being added to the account total, eliminating
+  a $0.01 discrepancy when the same box appears in multiple funds
+  
 ## v1.5.0 — 2026-03-28
 - Added: ANSI colour output for all interactive menus
 - Fix: PERCENTAGE-method ETFs (ZCN, etc.) dominant component rounded to 5dp

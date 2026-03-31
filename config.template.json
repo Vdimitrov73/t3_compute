@@ -12,6 +12,5 @@
   "col_indices": {
     "date": 0,
     "share_balance": 6
-  },
-  "broker_rounding": true
+  }
 }
