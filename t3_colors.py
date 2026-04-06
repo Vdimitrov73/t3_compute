@@ -25,10 +25,11 @@ def use_color() -> bool:
     """Return True when the terminal is likely to render ANSI codes."""
     if os.environ.get("NO_COLOR"):
         return False
+    if sys.stdout is None:
+        return False
     if sys.stdout.isatty():
         return True
     return bool(os.environ.get("WT_SESSION") or os.environ.get("TERM_PROGRAM"))
-
 
 def strip_ansi(text: str) -> str:
     return re.sub(r"\033\[[0-9;]*m", "", text)
