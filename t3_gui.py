@@ -33,7 +33,10 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 from datetime import date
 
 # ── Make pipeline scripts importable ─────────────────────────────────────────
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, "frozen", False):
+    _SCRIPT_DIR = sys._MEIPASS
+else:
+    _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 

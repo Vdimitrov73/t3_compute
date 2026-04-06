@@ -49,6 +49,7 @@ jobs:
             --console `
             --name t3_compute `
             --version-file version.txt `
+            --add-data "version.txt;." `
             --hidden-import tkinter `
             --hidden-import tkinter.ttk `
             --hidden-import tkinter.scrolledtext `
