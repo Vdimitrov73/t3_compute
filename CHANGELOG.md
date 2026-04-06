@@ -10,6 +10,8 @@ All notable changes to T3 Compute are listed here, newest first.
   (os.path.normpath applied to tkinter filedialog results in t3_gui.py)
 - Fix: path separators in config.json written correctly as backslashes
   when using the Setup Wizard on Windows
+- Fix: t3_colors.py guards sys.stdout None to prevent crash in windowed exe
+  when running CLI flags (e.g. --all --export) from a terminal
 
 ## v1.6.0 — 2026-04-06
 - Added: Windows GUI (t3_gui.py) — Tkinter shell replacing the
