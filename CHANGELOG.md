@@ -6,6 +6,10 @@ All notable changes to T3 Compute are listed here, newest first.
 ## v1.6.1 — 2026-04-06
 - Fix: frozen .exe no longer spawns a background console window on launch
   (PyInstaller --windowed flag added to build)
+- Fix: file/folder browser dialogs now save backslash paths on Windows
+  (os.path.normpath applied to tkinter filedialog results in t3_gui.py)
+- Fix: path separators in config.json written correctly as backslashes
+  when using the Setup Wizard on Windows
 
 ## v1.6.0 — 2026-04-06
 - Added: Windows GUI (t3_gui.py) — Tkinter shell replacing the

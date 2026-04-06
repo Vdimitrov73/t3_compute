@@ -230,6 +230,7 @@ class SetupWizard(tk.Toplevel):
                 parent=self,
                 initialdir=var.get() or os.path.expanduser("~"))
         if d:
+            d = os.path.normpath(d)
             var.set(d)
             if sync_acb:
                 cur = self._acb.get()
@@ -242,6 +243,7 @@ class SetupWizard(tk.Toplevel):
             initialdir=os.path.dirname(var.get()) or os.path.expanduser("~"),
             filetypes=[("Excel workbook", "*.xlsx"), ("All files", "*.*")])
         if path:
+            path = os.path.normpath(path)
             var.set(path)
 
     def _nav_buttons(self, parent, back_cmd, next_cmd,
