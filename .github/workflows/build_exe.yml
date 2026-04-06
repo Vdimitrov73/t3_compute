@@ -46,7 +46,7 @@ jobs:
         run: |
           pyinstaller `
             --onefile `
-            --console `
+            --windowed `
             --name t3_compute `
             --version-file version.txt `
             --add-data "version.txt;." `
