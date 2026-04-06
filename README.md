@@ -43,6 +43,10 @@ Your CDS T3 PDF or XLS file
            │
            ▼
    Step 4 — Compute T3 ─────────► T3_results_<year>.txt
+           │
+           ▼
+   Export — T3 HTML ───────────► T3_<year>[_<FUND>].html
+(one CRA-layout slip per brokerage account)
 ```
 
 ---
@@ -62,6 +66,8 @@ Your CDS T3 PDF or XLS file
 - Parses CDS T3 PDFs (2025+) and XLS files (2024 and earlier)
 - Computes all T3 boxes: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
 - Inserts ROC and phantom distribution rows directly into your ACB spreadsheet
+- Exports a print-ready CRA-layout T3 HTML slip per brokerage account
+- Filter export by fund — generate one slip matching exactly what each broker sent
 - Supports multiple brokerages and mid-year account transfers
 - First-run setup wizard — no manual JSON editing required
 - Fully local — no internet connection, no data collection
@@ -87,11 +93,14 @@ The first launch runs the setup wizard. After that it goes straight to the menu.
 ### CLI
 
 ```
-python run_t3.py --all                        Run all four steps
-python run_t3.py --step 2 --dry-run           Preview ACB insertions
-python run_t3.py --all --year 2024            Override tax year
-python run_t3.py --step 1 --funds VBAL ZCN   Process specific funds only
-python run_t3.py --help                       Show all options
+python run_t3.py --all                           Run all four steps
+python run_t3.py --step 2 --dry-run              Preview ACB insertions
+python run_t3.py --all --year 2024               Override tax year
+python run_t3.py --step 1 --funds VBAL ZCN       Process specific funds only
+python run_t3.py --step 4 --export               Compute T3 and export HTML (all funds)
+python run_t3.py --step 4 --export --funds VBAL  Export VBAL only → T3_2025_VBAL.html
+python run_t3.py --all --export --funds VBAL ZCN Run all steps + export VBAL and ZCN
+python run_t3.py --help                          Show all options
 ```
 
 ---
@@ -120,6 +129,7 @@ python run_t3.py --help                       Show all options
 3. Add a new year block to `account_periods.json`
 4. Enter all Buy/Sell transactions for the year into the ACB spreadsheet
 5. Run Step 1 → Step 2 → Step 3 → Step 4
+6. Export T3 HTML — one CRA-layout slip per brokerage account, ready to print
 
 ---
 

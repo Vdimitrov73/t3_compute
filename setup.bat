@@ -60,5 +60,9 @@ echo   5. Edit config.json with your tax year and file paths
 echo.
 echo   Then run the pipeline with:
 echo     python run_t3.py
+echo     python run_t3.py --gui    Graphical interface (Windows)
+echo.
+echo   On first launch, a setup wizard will guide you through
+echo   creating your config files automatically.
 echo.
 pause

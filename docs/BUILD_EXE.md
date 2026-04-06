@@ -52,11 +52,20 @@ pip install pyinstaller pdfplumber openpyxl xlrd
 
 From the `t3_compute` folder:
 
+**CLI build** (ZIP bundle release — console window + GUI):
 ```
 pyinstaller --onefile --console --name t3_compute run_t3.py
 ```
 
-This produces `dist\t3_compute.exe`. The build takes 30–60 seconds.
+**GUI-only build** (Microsoft Store MSIX — no console window):
+pyinstaller --onefile --windowed --name t3_compute run_t3.py
+
+The `--windowed` build launches directly into the GUI with no console
+window. The `--console` build supports CLI flags (`--step`, `--all`,
+`--dry-run`, etc.) from a terminal while still launching the GUI when
+run without arguments.
+
+Both builds produce `dist\t3_compute.exe` and take 30–60 seconds.
 
 ### Step 3 — Run it
 
@@ -83,15 +92,16 @@ You can verify this by inspecting the source code on GitLab before building.
 ## Notes for the CI/CD release build (maintainer only)
 
 The pre-built `.exe` in GitLab Releases is produced by the GitLab CI
-workflow `.gitlab-ci.yml` on a clean Windows runner.
-The build command is identical to Step 2 above. The resulting binary is
-attached to the release automatically.
+workflow `.gitlab-ci.yml` on a clean Windows runner. Two binaries are built:
+
+- `t3_compute.exe` — `--console` build, attached to the ZIP bundle release
+- `t3_compute_gui.exe` — `--windowed` build, packaged into the MSIX for the Store
 
 To trigger a new build, create and push a version tag:
 
 ```
-git tag -a v1.5.0 -m "v1.5.0"
-git push origin v1.5.0
+git tag -a v1.6.0 -m "v1.6.0"
+git push origin v1.6.0
 ```
 
 ---

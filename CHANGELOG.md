@@ -3,6 +3,29 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.6.0 — 2026-04-06
+- Added: Windows GUI (t3_gui.py) — Tkinter shell replacing the
+  interactive CLI menu; all pipeline logic unchanged
+- Added: SetupWizard GUI dialog — 4-page visual replacement for
+  the CLI first-run wizard; doubles as an edit dialog for existing config
+- Added: run_t3.py --gui flag to launch GUI from source install
+- Changed: frozen .exe now launches GUI by default instead of CLI menu
+- Added: T3 HTML export — generates a CRA-layout T3 slip per brokerage
+  account, styled with the official 5-column grid, bilingual labels,
+  and print-ready page breaks
+- Added: generate_t3_html() in run_t3.py — recomputes T3 from source
+  JSONs at export time; never reads stale results
+- Added: --export CLI flag — generate T3 HTML after --step 4 or --all
+- Added: --funds filter for export — e.g. --export --funds VBAL generates
+  T3_2025_VBAL.html matching the exact slip TD sent for that fund only
+- Added: GUI Export T3 HTML button — respects year and funds override
+  fields; opens generated file in browser automatically
+- Added: Session guard in interactive menu — E (Export) only appears
+  after Step 4 completes successfully in the current session; stale
+  results files from prior runs do not unlock it
+- Added: Session state captures exact year and funds used in Step 4
+  so E exports the identical selection without re-prompting
+
 ## v1.5.1 — 2026-03-31
 - Removed: `broker_rounding` config option and all LRM code — accumulate
   mode with fund-boundary rounding is now the only mode. Results match

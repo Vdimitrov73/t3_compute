@@ -92,10 +92,30 @@ broken down by account, with full per-distribution detail
 
 Boxes computed: 21, 23, 25, 26, 32, 34, 39, 42, 49, 50, 51
 
-**Rounding mode:** By default (`broker_rounding: true`), each distribution
-is rounded per-component using the Largest Remainder Method, which closely
-matches 2025+ PDF-sourced broker T3 slips. If you are processing **2024 or
-earlier** data (XLS format), set `"broker_rounding": false` in `config.json`
-to use accumulate mode, which may give better results with the older XLS
-per-unit values.
+Run Step 4 after Step 3. Results are written to the output text file
+and are also used by the Export step to generate the T3 HTML slip.
 
+## Export — T3 HTML Slip
+
+**Input:** Distribution JSONs and account JSONs (same as Step 4)
+
+**Output:** `<base_dir>\<year>\T3_<year>[_<FUND>].html` — one
+CRA-layout T3 slip per brokerage account, ready to print or
+save as PDF from your browser
+
+Only available after Step 4 has been run in the current session.
+In the GUI, click **Export T3 HTML**. In the interactive menu,
+press **E**. In CLI mode:
+python run_t3.py --step 4 --export # all funds
+python run_t3.py --step 4 --export --funds VBAL # one fund only
+
+If your brokers issued separate T3 slips for individual funds
+(common with TD Direct Investing), use `--funds` to generate a
+separate HTML file matching each broker mailing. Each file is
+named to reflect the fund selection:
+T3_2025.html ← all funds, all accounts
+T3_2025_VBAL.html ← VBAL only
+T3_2025_ZCN_CPD_VRE.html ← ZCN + CPD + VRE combined
+
+Open any of these files in a browser and use
+**File → Print → Save as PDF** to get a PDF copy.

@@ -14,7 +14,9 @@ CLI mode:
     python run_t3.py --step 4               # compute T3 only
     python run_t3.py --all                  # run all four steps in sequence
     python run_t3.py --all --year 2026      # override tax year
-    python run_t3.py --step 1 --funds VBAL ZCN  # override fund list
+    python run_t3.py --step 1 --funds VBAL  # override fund list
+    python run_t3.py --gui                  # run the pipeline in GUI mode
+    python run_t3.py --export               # export T3 HTML forms
     python run_t3.py --help                 # show this help
 
 Pipeline steps:
@@ -37,9 +39,13 @@ Pipeline steps:
              Reads the distribution JSONs and account JSONs, computes
              T3 slip totals per account, and saves a results text file.
 
+    Step 5 - Export your T3 slips (optional)
+             After Step 4 completes, use "Export T3 HTML". This generates
+             a print-ready CRA-layout T3 slip for each brokerage account.
+
 Config files:
     Python script (python run_t3.py / setup.bat):
-        Same directory as this script — no change from previous behaviour.
+        Same directory as this script.
     Bundled .exe (PyInstaller / Microsoft Store):
         Documents\\T3Compute\\
         e.g. C:\\Users\\<you>\\Documents\\T3Compute\\
@@ -461,6 +467,9 @@ Examples:
   python run_t3.py --step 4                   Compute T3 only
   python run_t3.py --all --year 2026          Run all steps for a different year
   python run_t3.py --step 1 --funds VBAL ZCN  Run step 1 for specific funds
+  python run_t3.py --step 4 --export                # all funds
+  python run_t3.py --step 4 --export --funds VBAL   # VBAL only → T3_2024_VBAL.html
+  python run_t3.py --all --export --funds VBAL ZCN  # run all + export VBAL ZCN
         """,
     )
     parser.add_argument(
@@ -492,6 +501,16 @@ Examples:
         "--dry-run",
         action="store_true",
         help="Step 2 only: preview ROC insertions without modifying the ACB spreadsheet",
+    )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Launch the graphical interface",
+    )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="After Step 4, generate T3_<year>.html in base_dir/<year>/",
     )
     return parser.parse_args()
 
@@ -542,6 +561,8 @@ def run_step(step_num, args):
     except SystemExit as e:
         if e.code == 2:
             # Exit code 2 = completed with warnings (e.g. missing PDFs in Step 1)
+            # run_step() returns normally here, so the caller treats this as success.
+            # For Step 4 specifically, the results file is still written — export is valid.
             print(c(YELLOW, f"\n  Step {step_num} completed with warnings — see above."))
             sys.argv = original_argv
             return
@@ -558,7 +579,7 @@ def run_step(step_num, args):
 
 # ── Interactive menu ──────────────────────────────────────────────────────────
 
-def show_menu():
+def show_menu(export_available=False):
     def row(content):
         return c(BOLD + YELLOW, "║") + c(BOLD + CYAN, content) + c(BOLD + YELLOW, "║")
     print()
@@ -570,6 +591,8 @@ def show_menu():
     print(row(             "  3  Build Assets            Reads ACB spreadsheet → JSONs "))
     print(row(             "  4  Compute T3              Reads JSONs → T3 slip totals  "))
     print(row(             "  A  Run all steps           Execute all steps in sequence "))
+    if export_available:
+        print(row(         "  E  Export T3 HTML          Save T3 HTML from last run    "))
     print(row(             "  Q  Quit                                                  "))
     print(c(BOLD + YELLOW, "╚═══════════════════════════════════════════════════════════╝"))
     print()
@@ -580,13 +603,30 @@ def interactive_mode(args):
     print("T3 Tax Pipeline — Interactive Mode")
     print("(Run with --help for CLI usage)")
 
+    session_export_ready = False
+    session_export_year  = None
+    session_export_funds = None
+    
     while True:
-        show_menu()
-        choice = input(c(BOLD + CYAN, "  Enter choice [1 / 2 / 3 / 4 / A / Q]: ")).strip().upper()
+        show_menu(export_available=session_export_ready)
+        valid = "1 / 2 / 3 / 4 / A / E / Q" if session_export_ready else "1 / 2 / 3 / 4 / A / Q"
+        choice = input(c(BOLD + CYAN, f"  Enter choice [{valid}]: ")).strip().upper()
 
         if choice == "Q":
             print(c(BOLD + CYAN, "Exiting."))
             break
+
+        elif choice == "E":
+            if not session_export_ready:
+                print(c(BOLD + YELLOW, "\n  ⚠  Run Step 4 (Compute T3) first before exporting."))
+                continue
+            try:
+                out = generate_t3_html(args.config, session_export_year, session_export_funds)
+                print(c(GREEN, f"\n  ✔  T3 HTML saved to: {out}"))
+            except Exception as ex:
+                print(c(RED, f"\n  ERROR: {ex}"))
+            continue
+
         elif choice == "A":
             steps_to_run = [1, 2, 3, 4]
         elif choice in ("1", "2", "3", "4"):
@@ -622,11 +662,21 @@ def interactive_mode(args):
             args.dry_run = (dry == "Y")
 
         # Run selected steps
+        step4_ran_ok = False
         try:
             for step_num in steps_to_run:
                 run_step(step_num, args)
+                if step_num == 4:
+                    step4_ran_ok = True
         except (SystemExit, Exception):
             print("\nPipeline stopped due to an error.")
+
+        # Only unlock E if Step 4 completed successfully this session
+        if step4_ran_ok:
+            session_export_ready = True
+            session_export_year  = args.year   # may be None — that's fine
+            session_export_funds = args.funds  # may be None — exports all funds
+            print(c(GREEN, "\n  ✔  E (Export T3 HTML) is now available in the menu."))
 
         print()
         again = input(c(BOLD + CYAN, "  Run another step? [Y / N]: ")).strip().upper()
@@ -634,27 +684,358 @@ def interactive_mode(args):
             print(c(BOLD + CYAN, "Exiting."))
             break
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ── T3 HTML export ────────────────────────────────────────────────────────────
 
+def generate_t3_html(config_path, year_override=None, funds_override=None):
+    import compute_t3 as ct3
+    cfg = ct3.load_config(config_path)
+    if year_override:
+        cfg["tax_year"] = year_override
+        ct3._set_derived_paths(cfg, year_override)
+    year     = cfg["tax_year"]
+    funds    = ct3.load_distributions(cfg["dist_dir"])
+
+    # Filter to only the requested funds
+    if funds_override:
+        unknown = [f for f in funds_override if f not in funds]
+        if unknown:
+            raise ValueError(f"Fund(s) not found in distributions: {', '.join(unknown)}")
+        funds = {k: v for k, v in funds.items() if k in funds_override}
+
+    accounts = ct3.load_assets(cfg["assets_dir"])
+    results, _ = ct3.compute_t3(funds, accounts, cfg["tax_rates"])
+
+    # Use fund names in filename if filtered
+    fund_suffix = f"_{'_'.join(sorted(funds_override))}" if funds_override else ""
+    out_dir  = os.path.join(cfg["base_dir"], year)
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"T3_{year}{fund_suffix}.html")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(_build_t3_html(results, year))
+    return out_path
+
+def _do_export(args):
+    """CLI wrapper for the HTML export — called after Step 4."""
+    # Guard: verify Step 4 output exists
+    try:
+        with open(args.config) as f:
+            cfg = json.load(f)
+        year     = (args.year if hasattr(args, "year") and args.year
+                    else cfg.get("tax_year", ""))
+        base_dir = cfg.get("base_dir", "")
+        txt      = os.path.join(base_dir, year, f"T3_results_{year}.txt")
+        if not os.path.exists(txt):
+            print(c(BOLD + YELLOW, "\n  ⚠  T3_results file not found — run Step 4 first."))
+            print(c(BOLD + YELLOW, f"     Expected: {txt}"))
+            return
+    except Exception as ex:
+        print(c(RED, f"\n  ERROR reading config: {ex}"))
+        return
+
+    print()
+    print(c(BOLD + YELLOW, "=" * 60))
+    print(c(BOLD + YELLOW, " EXPORT: Generating T3 HTML slip..."))
+    print(c(BOLD + YELLOW, "=" * 60))
+    try:
+        yr    = args.year
+        funds = args.funds or None
+        out   = generate_t3_html(args.config, yr, funds)
+        print(c(GREEN, f"\n  ✔  T3 HTML saved to: {out}"))
+    except Exception as ex:
+        print(c(RED, f"\n  ERROR generating T3 HTML: {ex}"))
+
+def _build_t3_html(results, year):
+    """Build CRA-layout T3 slip HTML using the official 5-column grid. Pure stdlib."""
+    from datetime import date as _date
+
+    def v(totals, field):
+        val = totals.get(field, 0.0)
+        return f"${val:,.2f}" if val else ""
+
+    def other_rows(totals):
+        extras = [
+            ("25", "foreignNonBusinessIncome"),
+            ("34", "foreignNonBusinessIncomeTaxPaid"),
+            ("42", "returnOfCapital"),
+        ]
+        filled = [(box, v(totals, field)) for box, field in extras if v(totals, field)]
+        while len(filled) < 4:
+            filled.append(("", ""))
+        rows_html = ""
+        for i in range(0, len(filled), 2):
+            b1, a1 = filled[i]
+            b2, a2 = filled[i + 1] if i + 1 < len(filled) else ("", "")
+            rows_html += f"""<tr>
+                <td>{b1}</td><td>{a1}</td>
+                <td>{b2}</td><td>{a2}</td>
+            </tr>"""
+        return rows_html
+
+    forms_html = ""
+    for account in sorted(results.keys()):
+        t = results[account]
+        forms_html += f"""
+    <div class="account-block">
+    <div class="form-container">
+        <div class="header">
+            <div>
+                <strong>Canada Revenue Agency</strong><br>
+                <strong>Agence du revenu du Canada</strong>
+            </div>
+            <div style="text-align:center;">
+                <h1 style="font-size:14px;margin:0;">Statement of Trust Income Allocations and Designations</h1>
+                <h2 style="font-size:12px;margin:0;font-style:italic;">État des revenus de fiducie (répartitions et attributions)</h2>
+                <div style="margin-top:4px;font-size:11px;color:#555;">Account: <strong>{account}</strong></div>
+            </div>
+            <div style="text-align:right;">
+                <strong style="font-size:20px;">T3</strong><br>
+                Protected B when completed<br>
+                <span class="fr">Protégé B une fois rempli</span>
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:5px;">
+            <div style="border:1px solid #000;padding:5px;">
+                <strong>Year / <span class="fr">Année</span></strong>:
+                <input type="text" style="width:60px;border:none;border-bottom:1px solid #000;"
+                       value="{year}">
+            </div>
+        </div>
+
+        <div class="grid-main">
+            <!-- Row 1: Eligible dividends -->
+            <div class="box span-2">
+                <span class="box-num">49</span>
+                <div class="box-label">Actual amount of eligible dividends<br>
+                    <span class="fr">Montant réel des dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'actualAmountOfEligibleDividends')}">
+            </div>
+            <div class="box span-2">
+                <span class="box-num">50</span>
+                <div class="box-label">Taxable amount of eligible dividends<br>
+                    <span class="fr">Montant imposable des dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'taxableAmountOfEligibleDividends')}">
+            </div>
+            <div class="box">
+                <span class="box-num">51</span>
+                <div class="box-label">Dividend tax credit for eligible dividends<br>
+                    <span class="fr">Crédit d'impôt pour dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'dividendTaxCreditForEligibleDividends')}">
+            </div>
+
+            <!-- Row 2: Non-eligible dividends -->
+            <div class="box span-2">
+                <span class="box-num">23</span>
+                <div class="box-label">Actual amount of dividends other than eligible dividends<br>
+                    <span class="fr">Montant réel des dividendes autres que des dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'actualAmountOfNonEligibleDividends')}">
+            </div>
+            <div class="box span-2">
+                <span class="box-num">32</span>
+                <div class="box-label">Taxable amount of dividends other than eligible dividends<br>
+                    <span class="fr">Montant imposable des dividendes autres que des dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'taxableAmountOfNonEligibleDividends')}">
+            </div>
+            <div class="box">
+                <span class="box-num">39</span>
+                <div class="box-label">Dividend tax credit for dividends other than eligible dividends<br>
+                    <span class="fr">Crédit d'impôt pour dividendes autres que des dividendes déterminés</span></div>
+                <input type="text" class="input-area" value="{v(t,'dividendTaxCreditForNonEligibleDividends')}">
+            </div>
+
+            <!-- Row 3: Capital gains / Other income -->
+            <div class="box span-2">
+                <span class="box-num">21</span>
+                <div class="box-label">Capital gains<br>
+                    <span class="fr">Gains en capital</span></div>
+                <input type="text" class="input-area" value="{v(t,'capitalGains')}">
+            </div>
+            <div class="box span-2">
+                <span class="box-num">30</span>
+                <div class="box-label">Capital gains eligible for deduction<br>
+                    <span class="fr">Gains en capital admissibles pour déduction</span></div>
+                <input type="text" class="input-area" value="">
+            </div>
+            <div class="box">
+                <span class="box-num">26</span>
+                <div class="box-label">Other income<br>
+                    <span class="fr">Autres revenus</span></div>
+                <input type="text" class="input-area" value="{v(t,'otherIncome')}">
+            </div>
+
+            <!-- Row 4: Other info / Footnotes / Trust year end -->
+            <div class="box span-2">
+                <div class="box-label" style="margin-left:0;">
+                    Other information — Box 25 Foreign Income · Box 34 Foreign Tax · Box 42 ROC<br>
+                    <span class="fr">Autres renseignements</span>
+                </div>
+                <table class="other-info-table">
+                    <tr>
+                        <th>Box/Case</th><th>Amount/Montant</th>
+                        <th>Box/Case</th><th>Amount/Montant</th>
+                    </tr>
+                    {other_rows(t)}
+                </table>
+            </div>
+            <div class="box span-2">
+                <div class="box-label" style="margin-left:0;">
+                    Footnotes — Notes de bas de page
+                </div>
+                <div style="height:50px;"></div>
+            </div>
+            <div class="box">
+                <div class="box-label" style="margin-left:0;">
+                    Trust year end<br>
+                    <span class="fr">Fin de l'année de la fiducie</span>
+                </div>
+                <div style="margin-top:5px;">
+                    Year/Année: <input type="text" style="width:40px;border:none;border-bottom:1px solid #000;" value="{year}"><br>
+                    Month/Mois: <input type="text" style="width:30px;border:none;border-bottom:1px solid #000;" value="12">
+                </div>
+            </div>
+
+            <!-- Row 5: Recipient / Trust name -->
+            <div class="box span-3">
+                <div class="box-label" style="margin-left:0;">
+                    Recipient's name (last name first) and address<br>
+                    <span class="fr">Nom, prénom et adresse du bénéficiaire</span>
+                </div>
+                <div style="height:40px;"></div>
+            </div>
+            <div class="box span-2">
+                <div class="box-label" style="margin-left:0;">
+                    Trust's name and address<br>
+                    <span class="fr">Nom et adresse de la fiducie</span>
+                </div>
+                <div style="height:40px;"></div>
+            </div>
+
+            <!-- Row 6: ID fields -->
+            <div class="box">
+                <span class="box-num">12</span>
+                <div class="box-label">Recipient identification number<br>
+                    <span class="fr">Numéro d'identification du bénéficiaire</span></div>
+                <input type="text" class="input-area">
+            </div>
+            <div class="box">
+                <span class="box-num">14</span>
+                <div class="box-label">Account number<br>
+                    <span class="fr">Numéro de compte</span></div>
+                <input type="text" class="input-area" value="{account}">
+            </div>
+            <div class="box">
+                <span class="box-num">16</span>
+                <div class="box-label">Report code<br>
+                    <span class="fr">Code du type de feuillet</span></div>
+                <input type="text" class="input-area">
+            </div>
+            <div class="box">
+                <span class="box-num">18</span>
+                <div class="box-label">Beneficiary code<br>
+                    <span class="fr">Code du bénéficiaire</span></div>
+                <input type="text" class="input-area">
+            </div>
+            <div class="box" style="display:flex;align-items:center;justify-content:center;background:#f9f9f9;">
+                <strong style="font-size:14px;">T3 ({year})</strong>
+            </div>
+        </div>
+
+        <div class="footer-note">
+            <div>For details, see next pages.<br>
+                <span class="fr">Lisez aussi les renseignements aux pages suivantes.</span>
+            </div>
+            <div style="text-align:right;color:#888;">
+                Generated by T3 Compute — personal reference only
+            </div>
+        </div>
+    </div>
+    </div>"""
+
+    today = _date.today().strftime("%B %d, %Y")
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>T3 Statement {year}</title>
+    <style>
+        @media print {{
+            .noprint {{ display: none; }}
+            .account-block {{ break-before: page; }}
+            .account-block:first-of-type {{ break-before: auto; }}
+            body {{ margin: 8mm; }}
+            .form-container {{ box-shadow: none; border: 1px solid #000; }}
+        }}
+        body {{ font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+                font-size:11px; color:#000; margin:20px; background:#f4f4f4; }}
+        .noprint {{ text-align:center; margin-bottom:16px; }}
+        .noprint button {{ padding:7px 22px; font-size:11pt; cursor:pointer;
+                           background:#1a3a6b; color:#fff; border:none; border-radius:3px; }}
+        .noprint small {{ margin-left:12px; color:#555; font-size:10px; }}
+        .account-block {{ margin-bottom:32px; }}
+        .form-container {{ width:950px; margin:0 auto; border:1px solid #000;
+                           padding:15px; background:#fff;
+                           box-shadow:0 0 10px rgba(0,0,0,.1); }}
+        .header {{ display:flex; justify-content:space-between; align-items:center;
+                   border-bottom:2px solid #000; padding-bottom:5px; margin-bottom:10px; }}
+        .grid-main {{ display:grid; grid-template-columns:repeat(5,1fr);
+                      gap:0; border-top:1px solid #000; border-left:1px solid #000; }}
+        .box {{ border-right:1px solid #000; border-bottom:1px solid #000;
+                padding:4px; min-height:45px; position:relative; }}
+        .box-num {{ position:absolute; top:2px; left:2px; border:1px solid #000;
+                    font-weight:bold; padding:1px 3px; background:#eee; font-size:10px; }}
+        .box-label {{ font-size:9px; line-height:1.1; font-weight:bold; margin-left:25px; }}
+        .fr {{ font-style:italic; font-weight:normal; }}
+        .input-area {{ width:95%; border:none; border-bottom:1px dotted #ccc;
+                       margin-top:15px; outline:none; font-size:12px; background:transparent; }}
+        .span-2 {{ grid-column:span 2; }}
+        .span-3 {{ grid-column:span 3; }}
+        .other-info-table {{ width:100%; border-collapse:collapse; margin-top:5px; }}
+        .other-info-table th,
+        .other-info-table td {{ border:1px solid #000; padding:2px; font-size:9px; }}
+        .footer-note {{ font-size:10px; margin-top:10px;
+                        display:flex; justify-content:space-between; }}
+        .gen-date {{ text-align:center; color:#aaa; font-size:9px; margin-top:6px; }}
+    </style>
+</head>
+<body>
+<div class="noprint">
+    <button onclick="window.print()">&#128438; Print / Save as PDF</button>
+    <small>Browser Print → Save as PDF · Generated {today}</small>
+</div>
+{forms_html}
+</body>
+</html>"""
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 def main():
+    # ── Hide console window when launched as GUI (frozen exe, no CLI flags) ──
+    if getattr(sys, 'frozen', False) and sys.platform == 'win32' and not any(
+        a in sys.argv for a in ['--step', '--all', '--export', '--gui', '--help']
+    ):
+        import ctypes
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)
+    
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
 
     config_dir = get_config_dir(script_dir)
-
-    # For Python/script users, sys.path already has script_dir.
-    # For .exe users, also add config_dir so the pipeline scripts can be found.
     if config_dir not in sys.path:
         sys.path.insert(0, config_dir)
 
     args = parse_args()
-
-    # Default dry_run to False if not set (older argparse won't have it)
     if not hasattr(args, "dry_run"):
         args.dry_run = False
 
-    # First-run setup wizard — only in interactive mode, never in CLI mode
+    # GUI mode: frozen exe with no CLI arguments → launch the GUI
+    if args.gui or (args.step is None and not args.all and getattr(sys, "frozen", False)):
+        from t3_gui import main as gui_main
+        gui_main()
+        return
+
+    # CLI / interactive mode
     if args.step is None and not args.all:
         check_and_run_setup(script_dir, config_dir, args)
         interactive_mode(args)
@@ -663,11 +1044,16 @@ def main():
             for step_num in (1, 2, 3, 4):
                 run_step(step_num, args)
             print(c(BOLD + GREEN, "\nAll steps completed."))
+            if args.export:
+                _do_export(args)
         except (SystemExit, Exception):
             print(c(BOLD + RED, "\nPipeline stopped due to an error."))
     else:
         run_step(args.step, args)
-
+        if args.export and args.step == 4:
+            _do_export(args)
+        elif args.export and args.step != 4:
+            print(c(YELLOW, "  --export only applies to --step 4, skipping."))
 
 if __name__ == "__main__":
     main()

@@ -37,7 +37,8 @@ warning, no Python required, and updates automatically.
    - Check **"Add Python to PATH"** on the first screen before clicking Install
 2. Download and extract the **[source ZIP](https://gitlab.com/vdimitrov_73/t3_compute/-/archive/main/t3_compute-main.zip)**
 3. Double-click **`setup.bat`** — it installs all required packages automatically
-4. Run `python run_t3.py`
+4. Run `python run_t3.py`          ← interactive menu (all platforms)
+   Run `python run_t3.py --gui`    ← graphical interface (Windows; macOS/Linux not tested)
 
 ---
 

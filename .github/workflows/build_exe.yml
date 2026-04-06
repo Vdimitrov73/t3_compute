@@ -48,13 +48,29 @@ jobs:
             --onefile `
             --console `
             --name t3_compute `
+            --version-file version.txt `
+            --hidden-import tkinter `
+            --hidden-import tkinter.ttk `
+            --hidden-import tkinter.scrolledtext `
+            --hidden-import tkinter.filedialog `
+            --hidden-import tkinter.messagebox `
+            --hidden-import t3_gui `
+            --hidden-import t3_colors `
+            --hidden-import parse_t3_pdfs `
+            --hidden-import update_acb `
+            --hidden-import build_assets `
+            --hidden-import compute_t3 `
             --hidden-import pdfplumber `
             --hidden-import pdfminer `
             --hidden-import pdfminer.high_level `
             --hidden-import pdfminer.layout `
+            --hidden-import pdfminer.pdfparser `
+            --hidden-import pdfminer.pdfdocument `
+            --hidden-import pdfminer.pdfpage `
+            --hidden-import pdfminer.converter `
+            --hidden-import pdfminer.pdfinterp `
             --hidden-import openpyxl `
             --hidden-import xlrd `
-            --version-file version.txt `
             run_t3.py
 
       # ── 5. Bundle exe + templates + quick start into a zip ───────────────
@@ -69,6 +85,7 @@ jobs:
           Copy-Item dist\t3_compute.exe              release_staging\
           Copy-Item README.FIRST.txt                 release_staging\
           Copy-Item acb_worksheet_template.xlsx      release_staging\
+          Copy-Item version.txt release_staging\
 
           Compress-Archive -Path release_staging\* -DestinationPath $zipName
           echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV

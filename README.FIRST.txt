@@ -55,6 +55,24 @@ Or choose "Run all steps" to run them in sequence.
 Your results will be saved to:
   <base_dir>\<year>\T3_results_<year>.txt
 
+STEP 6 — Export your T3 slips (optional)
+-----------------------------------------
+After Step 4 completes, click "Export T3 HTML" in
+the GUI (or press E in the menu).
+
+This generates a print-ready CRA-layout T3 slip for
+each brokerage account:
+  <base_dir>\<year>\T3_<year>.html
+
+If your brokers sent separate slips for individual
+funds, use the Funds override field to generate a
+matching slip for each broker mailing:
+  e.g. funds: VBAL → T3_2025_VBAL.html
+       funds: ZCN CPD VRE → T3_2025_ZCN_CPD_VRE.html
+
+Open the HTML file in any browser and use
+File → Print → Save as PDF to get a PDF copy.
+
 ============================================================
   Need help?
 ============================================================

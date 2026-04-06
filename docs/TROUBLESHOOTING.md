@@ -40,6 +40,7 @@ rates. Verify current rates at
 `tax_rates` in `config.json`.
 
 **Results differ from my broker T3 slip by $0.01**
-Check `broker_rounding` in `config.json`. For 2025+ PDF data, `true`
-(default) gives the closest match to broker slips. For 2024 and earlier
-XLS data, `false` (accumulate mode) may produce better results.
+Small rounding differences are normal. The pipeline accumulates per-unit
+distribution amounts across all record dates and rounds at the final total,
+which may differ slightly from your broker's internal rounding. Differences
+of $0.01–$0.02 per box are expected and acceptable for tax filing purposes.
