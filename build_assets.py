@@ -6,9 +6,9 @@ by parse_t3_pdfs.py, then produces one JSON per brokerage account showing the
 share balance on each distribution record date.
 
 Requirements:
-    pip install xlrd          # for .xls files  (pip install xlrd==1.2.0)
-    pip install openpyxl      # for .xlsx files  (already installed)
-
+    pip install xlrd       # for .xls files (CDS T3 2024 and earlier; ACB spreadsheets)
+    pip install openpyxl   # for .xlsx files (ACB spreadsheet — read/write)
+    
 Usage:
     python build_assets.py [--config config.json] [--year 2025] [--funds VBAL ZCN]
 
@@ -372,8 +372,24 @@ def main():
         # Load ACB sheet
         rows = load_sheet(xls_path, fund)
         if rows is None:
-            print(c(YELLOW, f"  WARNING: Sheet '{fund}' not found in {xls_path} — skipping."))
-            print(c(DIM,    f"           Sheet name must match the fund ticker exactly."))
+            try:
+                ext = os.path.splitext(xls_path)[1].lower()
+                if ext == ".xlsx":
+                    from openpyxl import load_workbook as _lw
+                    _wb = _lw(xls_path, read_only=True, data_only=True)
+                    try:
+                        available = ', '.join(_wb.sheetnames)
+                    finally:
+                        _wb.close()
+                else:
+                    import xlrd
+                    _wb = xlrd.open_workbook(xls_path)
+                    available = ', '.join(_wb.sheet_names())
+            except Exception:
+                available = "unknown"
+            print(c(YELLOW, f"  WARNING: Sheet '{fund}' not found in {os.path.basename(xls_path)}"))
+            print(c(DIM,    f"           Available sheets: {available}"))
+            print(c(DIM,    f"           Sheet name must match fund ticker exactly."))
             warning_count += 1
             continue
 

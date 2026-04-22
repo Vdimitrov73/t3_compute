@@ -126,7 +126,10 @@ def fmt5(v):
     return f"${v:,.5f}"
 
 def parse_date(s):
-    return datetime.strptime(s, "%Y-%m-%d").date()
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
 
 # ── Load distributions ────────────────────────────────────────────────────────
 
@@ -143,8 +146,15 @@ def load_distributions(dist_dir):
         dists = []
         for d in data.get("distributions", []):
             parsed = dict(d)
-            parsed["recordDate"]  = parse_date(d["recordDate"])
-            parsed["paymentDate"] = parse_date(d["paymentDate"])
+            parsed["recordDate"]  = parse_date(d.get("recordDate"))
+            parsed["paymentDate"] = parse_date(d.get("paymentDate"))
+            if parsed["recordDate"] is None or parsed["paymentDate"] is None:
+                print(c(YELLOW,
+                        f"  WARNING: Skipping distribution in {os.path.basename(path)}"
+                        f" — missing or unparseable date"
+                        f" (recordDate={d.get('recordDate')!r}, "
+                        f"paymentDate={d.get('paymentDate')!r})"))
+                continue
             dists.append(parsed)
         funds[name] = dists
     return funds
