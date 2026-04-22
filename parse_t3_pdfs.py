@@ -440,11 +440,11 @@ def extract_distributions_from_xls(xls_path, fund_name, calc_method_override=Non
     """
     try:
         import xlrd
-    except ImportError:
-        raise ImportError(
-            "xlrd is required to parse CDS T3 XLS files (tax years 2024 and earlier).\n"
-            "Install it with:  pip install xlrd"
-        )
+    except ImportError as e:
+        raise RuntimeError(
+            "xlrd is required to parse CDS T3 XLS files (tax years 2024 and earlier). "
+            "Install it with: pip install xlrd>=1.2.0"
+        ) from e
 
     SHEET_NAME   = "T3, R16"
     # xlrd uses 0-based row/col indices
