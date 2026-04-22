@@ -76,7 +76,7 @@ BOX_TO_FIELD = {
 
 def is_number(s):
     try:    float(s); return True
-    except: return False
+    except (ValueError, TypeError): return False
 
 def is_date(s):
     return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", s or ""))
@@ -442,10 +442,11 @@ def extract_distributions_from_xls(xls_path, fund_name, calc_method_override=Non
         import xlrd
     except ImportError as e:
         raise RuntimeError(
-            "xlrd is required to parse CDS T3 XLS files (tax years 2024 and earlier). "
-            "Install it with: pip install xlrd>=1.2.0"
+            "xlrd is required to parse CDS T3 XLS files (tax years 2024 and earlier).\n"
+            "Install it with:  pip install xlrd\n"
+            "Note: xlrd 2.0+ supports .xls files only (not .xlsx) — "
+            "this is correct for CDS T3 files. Use the current version, not 1.2.0."
         ) from e
-
     SHEET_NAME   = "T3, R16"
     # xlrd uses 0-based row/col indices
     # openpyxl-style (row, col) 1-based -> xlrd (row-1, col-1)
