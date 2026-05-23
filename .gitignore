@@ -51,6 +51,4 @@ Desktop.ini
 
 # Claude Code
 .claude/*
-!.claude/commands/
-!.claude/commands/*
 !CLAUDE.md

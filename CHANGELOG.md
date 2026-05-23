@@ -3,6 +3,17 @@
 All notable changes to T3 Compute are listed here, newest first.
 
 ---
+## v1.6.2 — 2026-05-23
+- t3_gui: strip ANSI escape codes in _log_write() — fixes raw color
+  codes appearing in GUI log when launched from PowerShell
+- t3_gui: _run_worker now detects exit code 2 (warnings) and shows
+  amber 'Completed with warnings' instead of green 'Completed ✓'
+- run_t3: run_step returns 0 for success, 1 for warnings to support
+  GUI status detection
+- build_assets: use json.dumps() for string values in JSON writer to
+  correctly escape quotes and special characters in account names
+- parse_t3_pdfs: add explicit None → null check in to_json() serializer"
+
 ## v1.6.1 — 2026-04-06
 - Fix: frozen .exe no longer spawns a background console window on launch
   (PyInstaller --windowed flag added to build)

@@ -31,6 +31,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 from datetime import date
+from t3_colors import strip_ansi
 
 # ── Make pipeline scripts importable ─────────────────────────────────────────
 if getattr(sys, "frozen", False):
@@ -1136,6 +1137,8 @@ class T3App(tk.Tk):
     # ── Logging ───────────────────────────────────────────────────────────────
 
     def _log_write(self, text):
+        # Strip ANSI codes
+        text = strip_ansi(text)
         self._log.configure(state="normal")
 
         # Colour-code based on content
@@ -1298,7 +1301,9 @@ class T3App(tk.Tk):
         builtins.input = _auto_input
         result = "ok"
         try:
-            fn()
+            rc = fn()
+            if rc == 1:        # run_step returned 1 = warnings
+                result = "warnings"
         except SystemExit as e:
             if e.code == 2:
                 result = "warnings"

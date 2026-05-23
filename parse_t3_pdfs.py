@@ -368,6 +368,8 @@ def to_json(obj, indent=0):
                 if "e" in s or "E" in s:
                     s = f"{v:.9f}".rstrip("0").rstrip(".")
                 lines.append(f"{pad}  {json.dumps(k)}: {s}{comma}")
+            elif v is None:
+                lines.append(f"{pad}  {json.dumps(k)}: null{comma}")
             elif isinstance(v, (dict, list)):
                 lines.append(f"{pad}  {json.dumps(k)}: {to_json(v, indent+1)}{comma}")
             else:

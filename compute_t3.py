@@ -384,7 +384,7 @@ def main():
     accounts = load_assets(assets_dir)
     print(f"  Loaded {len(accounts)} account(s): {', '.join(sorted(accounts.keys()))}")
 
-    print("\\nBeginning computation...")
+    print("\nBeginning computation...")
     results, details = compute_t3(funds, accounts, tax_rates)
 
     print_results(results, details, output_txt)

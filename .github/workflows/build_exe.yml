@@ -34,7 +34,9 @@ jobs:
           $tag = "${{ github.ref_name }}".TrimStart("v")
           $parts = $tag.Split(".")
           $v = "$($parts[0]), $($parts[1]), $($parts[2]), 0"
+          $vs = "$($parts[0]).$($parts[1]).$($parts[2]).0"
           (Get-Content version.txt) -replace "\(\d+, \d+, \d+, \d+\)", "($v)" | Set-Content version.txt
+          (Get-Content version.txt) -replace "\d+\.\d+\.\d+\.0", "$vs" | Set-Content version.txt
 
       # ── 4. Build the executable ───────────────────────────────────────────
       # --onefile        : single self-contained .exe

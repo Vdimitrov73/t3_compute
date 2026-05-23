@@ -441,18 +441,20 @@ def main():
         out_path = os.path.join(assets_dir, f"{sanitize_filename(account)}_{tax_year}.json")
 
         with open(out_path, "w") as f:
+            def json_str(s):
+                return json.dumps(s, ensure_ascii=False)
             lines = ['{\n']
             items = list(output.items())
             for i, (key, val) in enumerate(items):
                 comma = "," if i < len(items) - 1 else ""
                 if key == "account":
-                    lines.append(f'  "account": "{val}",\n')
+                    lines.append(f'  "account": {json_str(val)},\n')
                 else:
-                    lines.append(f'  "{key}": [\n')
+                    lines.append(f'  {json_str(key)}: [\n')
                     for j, entry in enumerate(val):
                         entry_comma = "," if j < len(val) - 1 else ""
                         lines.append(
-                            f'    {{ "date": "{entry["date"]}", '
+                            f'    {{ "date": {json_str(entry["date"])}, '
                             f'"ownedShares": {entry["ownedShares"]} }}{entry_comma}\n'
                         )
                     lines.append(f'  ]{comma}\n')

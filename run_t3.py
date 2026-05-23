@@ -561,11 +561,8 @@ def run_step(step_num, args):
     except SystemExit as e:
         if e.code == 2:
             # Exit code 2 = completed with warnings (e.g. missing PDFs in Step 1)
-            # run_step() returns normally here, so the caller treats this as success.
-            # For Step 4 specifically, the results file is still written — export is valid.
             print(c(YELLOW, f"\n  Step {step_num} completed with warnings — see above."))
-            sys.argv = original_argv
-            return
+            return 1  # signal warnings to caller
         if e.code != 0:
             print(c(RED, f"\n  Step {step_num} exited with code {e.code}."))
             raise
@@ -576,6 +573,7 @@ def run_step(step_num, args):
         sys.argv = original_argv
 
     print(c(GREEN, f"\n  Step {step_num} completed successfully."))
+    return 0  # signal success
 
 # ── Interactive menu ──────────────────────────────────────────────────────────
 
@@ -665,8 +663,8 @@ def interactive_mode(args):
         step4_ran_ok = False
         try:
             for step_num in steps_to_run:
-                run_step(step_num, args)
-                if step_num == 4:
+                rc = run_step(step_num, args)
+                if step_num == 4 and rc is not None:
                     step4_ran_ok = True
         except (SystemExit, Exception):
             print("\nPipeline stopped due to an error.")
